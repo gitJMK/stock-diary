@@ -17,7 +17,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .ttab{padding:6px 14px;font-size:13px;background:none;border:1px solid #ddd;border-radius:8px;cursor:pointer;color:#666}
 .ttab.active{background:#1a1a1a;color:#fff;border-color:#1a1a1a}
 .api-btn{padding:6px 12px;font-size:12px;background:none;border:1px solid #ddd;border-radius:8px;cursor:pointer;color:#666;display:flex;align-items:center;gap:4px}
-.api-btn.connected{border-color:#1D9E75;color:#1D9E75}
+.api-btn.synced{border-color:#378ADD;color:#378ADD}
+.api-btn.synced::before{content:'●';font-size:8px}
+.sync-status{font-size:12px;min-height:18px;padding:6px 10px;border-radius:6px;text-align:center}
+.sync-status.ok{background:#E1F5EE;color:#0a5e3f}
+.sync-status.err{background:#fff5f5;color:#e24b4a}
+.sync-status.info{background:#E6F1FB;color:#185FA5}
 .api-btn.connected::before{content:'●';font-size:8px}
 .api-btn:not(.connected)::before{content:'○';font-size:8px}
 
@@ -270,6 +275,34 @@ td{padding:8px 10px;border-bottom:1px solid #f0f0f0;overflow:hidden;text-overflo
   </div>
 </div>
 
+<!-- 동기화 모달 -->
+<div class="modal-overlay" id="sync-modal" style="display:none">
+  <div class="modal">
+    <div class="modal-title">☁ 클라우드 동기화</div>
+    <div class="modal-sub">동기화 ID로 모든 기기에서 데이터를 공유합니다</div>
+    <div class="modal-note">
+      <strong>🔒 보안 안내</strong><br>
+      데이터는 마스터 비밀번호로 암호화된 상태로 저장됩니다.<br>
+      Cloudflare 서버에도 평문이 전달되지 않습니다.<br>
+      동기화 ID는 기기 식별자로만 사용되며 비밀번호가 아닙니다.
+    </div>
+    <div class="mfg">
+      <label>동기화 ID <span style="color:#aaa;font-weight:400">(기기 간 공유할 고유 이름)</span></label>
+      <input type="text" id="sync-user-id" placeholder="예: my-stock-diary-2024" autocomplete="off" maxlength="64">
+    </div>
+    <div class="modal-err" id="sync-err"></div>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:8px">
+      <button class="mbtn mbtn-p" style="width:100%;padding:10px" onclick="syncUpload()">⬆ 이 기기 → 클라우드 (업로드)</button>
+      <button class="mbtn mbtn-g" style="width:100%;padding:10px" onclick="syncDownload()">⬇ 클라우드 → 이 기기 (다운로드)</button>
+    </div>
+    <div class="sync-status" id="sync-status"></div>
+    <div class="modal-btns" style="margin-top:8px">
+      <button class="mbtn mbtn-r" onclick="syncDelete()" id="sync-del-btn" style="margin-right:auto">클라우드 데이터 삭제</button>
+      <button class="mbtn mbtn-g" onclick="closeSyncModal()">닫기</button>
+    </div>
+  </div>
+</div>
+
 <!-- API 설정 모달 -->
 <div class="modal-overlay" id="api-modal" style="display:none">
   <div class="modal">
@@ -308,6 +341,7 @@ td{padding:8px 10px;border-bottom:1px solid #f0f0f0;overflow:hidden;text-overflo
   <div class="topbar">
     <span class="topbar-title">📈 주식 일기장</span>
     <div class="topbar-right">
+      <button class="api-btn" id="sync-btn" onclick="openSyncModal()">☁ 동기화</button>
       <button class="api-btn" id="api-status-btn" onclick="openApiModal()">KIS API</button>
       <div class="ttabs">
         <button class="ttab active" onclick="showView('cal')">캘린더</button>
@@ -822,6 +856,7 @@ async function bootApp() {
   document.getElementById('lock-screen').style.display = 'none';
   document.getElementById('main-app').style.display = '';
   updateApiStatusBtn();
+  if (localStorage.getItem(SYNC_ID_KEY)) updateSyncBtn(true);
   log('앱 로드 완료', 'ok');
   renderCal();
 }
@@ -844,8 +879,126 @@ async function saveApiCreds(creds) {
 }
 
 // ═══════════════════════════════════════════════════════════
-// KIS API 토큰 & 현재가
+// 클라우드 동기화 (Cloudflare KV)
 // ═══════════════════════════════════════════════════════════
+const SYNC_ID_KEY = 'sdv3_sync_id';
+
+function openSyncModal() {
+  const saved = localStorage.getItem(SYNC_ID_KEY) || '';
+  document.getElementById('sync-user-id').value = saved;
+  document.getElementById('sync-err').textContent = '';
+  document.getElementById('sync-status').textContent = '';
+  document.getElementById('sync-status').className = 'sync-status';
+  document.getElementById('sync-modal').style.display = 'flex';
+}
+
+function closeSyncModal() {
+  document.getElementById('sync-modal').style.display = 'none';
+}
+
+function getSyncId() {
+  const id = document.getElementById('sync-user-id').value.trim();
+  if (!id || id.length < 4) {
+    document.getElementById('sync-err').textContent = '동기화 ID는 4자 이상 입력해주세요.';
+    return null;
+  }
+  localStorage.setItem(SYNC_ID_KEY, id);
+  return id;
+}
+
+function setSyncStatus(msg, level = 'info') {
+  const el = document.getElementById('sync-status');
+  el.textContent = msg;
+  el.className = 'sync-status ' + level;
+}
+
+async function syncUpload() {
+  const userId = getSyncId();
+  if (!userId) return;
+  setSyncStatus('업로드 중...', 'info');
+  log('클라우드 업로드 시작', 'info');
+  try {
+    // 거래 데이터 + API 설정 모두 암호화해서 하나의 객체로
+    const payload = {
+      trades: localStorage.getItem(K.TRADES) || '',
+      creds:  localStorage.getItem(K.CREDS)  || '',
+      hash:   localStorage.getItem(K.HASH)   || '',
+      uploadedAt: new Date().toISOString(),
+    };
+    const resp = await fetch(`${PROXY_BASE}/kv/save`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, data: JSON.stringify(payload) }),
+    });
+    const result = await resp.json();
+    if (!resp.ok || !result.ok) throw new Error(result.error || '업로드 실패');
+    setSyncStatus(`✓ 업로드 완료 (${new Date().toLocaleTimeString('ko-KR')})`, 'ok');
+    log('클라우드 업로드 완료', 'ok');
+    updateSyncBtn(true);
+  } catch(e) {
+    setSyncStatus('업로드 실패: ' + e.message, 'err');
+    log('클라우드 업로드 실패: ' + e.message, 'err');
+  }
+}
+
+async function syncDownload() {
+  const userId = getSyncId();
+  if (!userId) return;
+  setSyncStatus('다운로드 중...', 'info');
+  log('클라우드 다운로드 시작', 'info');
+  try {
+    const resp = await fetch(`${PROXY_BASE}/kv/load`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId }),
+    });
+    const result = await resp.json();
+    if (!resp.ok || !result.ok) throw new Error(result.error || '다운로드 실패');
+    if (!result.data) {
+      setSyncStatus('클라우드에 저장된 데이터가 없습니다.', 'err');
+      return;
+    }
+    const payload = JSON.parse(result.data);
+    // 비밀번호 해시가 다른 기기와 다를 수 있으므로 덮어쓰기
+    if (payload.hash)   localStorage.setItem(K.HASH,   payload.hash);
+    if (payload.trades) localStorage.setItem(K.TRADES, payload.trades);
+    if (payload.creds)  localStorage.setItem(K.CREDS,  payload.creds);
+    setSyncStatus(`✓ 다운로드 완료 — 앱을 새로고침합니다...`, 'ok');
+    log('클라우드 다운로드 완료 — 새로고침', 'ok');
+    updateSyncBtn(true);
+    setTimeout(() => location.reload(), 1500);
+  } catch(e) {
+    setSyncStatus('다운로드 실패: ' + e.message, 'err');
+    log('클라우드 다운로드 실패: ' + e.message, 'err');
+  }
+}
+
+async function syncDelete() {
+  const userId = getSyncId();
+  if (!userId) return;
+  if (!confirm('클라우드에 저장된 데이터를 삭제하시겠습니까?\n이 기기의 데이터는 유지됩니다.')) return;
+  setSyncStatus('삭제 중...', 'info');
+  try {
+    const resp = await fetch(`${PROXY_BASE}/kv/delete`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId }),
+    });
+    const result = await resp.json();
+    if (!resp.ok || !result.ok) throw new Error(result.error || '삭제 실패');
+    setSyncStatus('✓ 클라우드 데이터 삭제 완료', 'ok');
+    log('클라우드 데이터 삭제', 'ok');
+    updateSyncBtn(false);
+  } catch(e) {
+    setSyncStatus('삭제 실패: ' + e.message, 'err');
+  }
+}
+
+function updateSyncBtn(synced) {
+  const btn = document.getElementById('sync-btn');
+  if (synced) btn.classList.add('synced');
+  else btn.classList.remove('synced');
+}
 async function ensureToken() {
   if (!apiCreds) throw new Error('API 설정이 없습니다.');
   const now = Date.now();
