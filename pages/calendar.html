@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>캘린더 — 주식 일기장</title>
+<link rel="stylesheet" href="../css/common.css">
+<style>
+/* 캘린더 */
+.cal-header{display:flex;align-items:center;justify-content:space-between;padding:.75rem 1.5rem;border-bottom:1px solid #e5e5e5}
+.cal-nav{display:flex;align-items:center;gap:10px}
+.nav-btn{background:none;border:1px solid #ddd;border-radius:8px;padding:5px 12px;cursor:pointer;font-size:15px;color:#1a1a1a}
+.nav-btn:hover{background:#f5f5f5}
+.cal-month{font-size:15px;font-weight:600;min-width:110px;text-align:center}
+.legend{display:flex;gap:14px;font-size:12px;color:#666}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block;vertical-align:middle;margin-right:3px}
+.cal-wrap{padding:.5rem 1rem .5rem}
+.day-labels{display:grid;grid-template-columns:repeat(7,1fr);text-align:center;padding:8px 0 4px}
+.day-labels span{font-size:11px;font-weight:600;color:#888}
+.day-labels span:first-child{color:#e24b4a}
+.day-labels span:last-child{color:#378ADD}
+.cells{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+.cell{min-height:75px;border-radius:8px;padding:5px 6px;cursor:pointer;border:1px solid transparent;transition:background .1s}
+.cell:hover{background:#f8f8f8;border-color:#e5e5e5}
+.cell.today{border:2px solid #1a1a1a}
+.cell.sel{background:#f0f0f0;border-color:#999}
+.cell.other .dnum{color:#ccc}
+.dnum{font-size:12px;font-weight:600;margin-bottom:3px}
+.cell.sun .dnum{color:#e24b4a}
+.cell.sat .dnum{color:#378ADD}
+.ctrade{font-size:10px;padding:1px 5px;border-radius:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:2px}
+.ctrade.buy{background:#E1F5EE;color:#0a5e3f}
+.ctrade.sell{background:#FEECEC;color:#9b2222}
+.more{font-size:10px;color:#999}
+
+/* 패널 */
+.panel{border-top:1px solid #e5e5e5;padding:1.25rem 1.5rem}
+.ph{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem}
+.pt{font-size:15px;font-weight:600}
+.pc{background:none;border:none;font-size:22px;cursor:pointer;color:#999;line-height:1;padding:0 4px}
+.pc:hover{color:#333}
+.dt-item{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:#f9f9f9;border-radius:8px;margin-bottom:6px;border:1px solid #eee}
+.dbadge{font-size:11px;padding:2px 8px;border-radius:10px;font-weight:600;white-space:nowrap;margin-top:1px}
+.dbadge.buy{background:#E1F5EE;color:#0a5e3f}
+.dbadge.sell{background:#FEECEC;color:#9b2222}
+.dname{font-size:13px;font-weight:600}
+.ddetail{font-size:12px;color:#666;margin-top:2px}
+.dmemo{font-size:11px;color:#888;font-style:italic;margin-top:3px}
+.ddel{background:none;border:none;color:#e24b4a;cursor:pointer;font-size:12px;padding:2px 6px;white-space:nowrap}
+.ddel:hover{text-decoration:underline}
+.dedit{background:none;border:none;color:#378ADD;cursor:pointer;font-size:12px;padding:2px 6px;white-space:nowrap}
+.dedit:hover{text-decoration:underline}
+
+/* 폼 */
+.form-sep{border-top:1px solid #e5e5e5;padding-top:1rem;margin-top:.75rem}
+.form-sep-title{font-size:13px;font-weight:600;color:#555;margin-bottom:12px}
+
+/* 자동완성 */
+.ac-wrap{position:relative}
+.ac-list{position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid #ddd;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.1);z-index:200;max-height:180px;overflow-y:auto;margin-top:2px}
+.ac-item{padding:8px 12px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;font-size:13px}
+.ac-item:hover,.ac-item.active{background:#f5f5f5}
+.ac-item-name{font-weight:500}
+.ac-item-code{font-size:11px;color:#aaa;font-family:monospace}
+.ac-item-cat{font-size:10px;color:#888;background:#f0f0f0;padding:1px 6px;border-radius:4px}
+
+/* 계산기 */
+.calc-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:600;display:flex;align-items:flex-end;justify-content:center}
+.calc-modal{background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:400px;padding:1.5rem 1.5rem 2rem}
+.calc-title{font-size:15px;font-weight:600;margin-bottom:4px}
+.calc-sub{font-size:12px;color:#888;margin-bottom:1rem}
+.calc-display{background:#f5f5f5;border-radius:10px;padding:12px 16px;margin-bottom:12px;text-align:right}
+.calc-expr{font-size:12px;color:#aaa;min-height:16px;margin-bottom:2px}
+.calc-val{font-size:26px;font-weight:600;letter-spacing:-0.5px}
+.calc-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}
+.ck{padding:14px 0;font-size:16px;font-weight:500;border:none;border-radius:10px;cursor:pointer;background:#f5f5f5;color:#1a1a1a}
+.ck:active{transform:scale(.95)}
+.ck.op{background:#e8e8e8}.ck.eq{background:#1a1a1a;color:#fff}.ck.zero{grid-column:span 2}
+.calc-confirm{width:100%;padding:13px;background:#1a1a1a;color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:500;cursor:pointer}
+.calc-confirm:hover{background:#333}
+.calc-cancel{width:100%;padding:10px;background:none;border:none;color:#888;font-size:13px;cursor:pointer;margin-top:6px}
+
+@media(max-width:600px){
+  .cal-header{padding:.75rem 1rem}
+  .panel{padding:1rem}
+  .cell{min-height:52px;padding:3px 4px}
+  .dnum{font-size:11px}
+  .ctrade{font-size:9px;padding:1px 3px}
+  .more{font-size:9px}
+}
+</style>
+</head>
+<body>
+<!-- 로그 패널 -->
+<button class="log-toggle" id="log-toggle-btn" onclick="toggleLog()">
+  <span class="log-dot" id="log-dot"></span> LOG
+</button>
+<div class="log-panel" id="log-panel" style="display:none">
+  <div class="log-panel-header">
+    <span class="log-panel-title">실행 로그</span>
+    <span class="log-ver" id="version-badge"></span>
+    <button class="log-clear" onclick="clearLog()">전체 삭제</button>
+  </div>
+  <div class="log-list" id="log-list"><div class="log-empty">아직 로그가 없습니다</div></div>
+</div>
+
+<!-- 거래 수정 모달 -->
+<div class="modal-overlay" id="edit-modal" style="display:none">
+  <div class="modal">
+    <div class="modal-title">거래 수정</div>
+    <div class="modal-sub">내용을 수정한 후 저장하세요</div>
+    <input type="hidden" id="edit-id">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="mfg" style="grid-column:1/-1"><label>종목명</label><input type="text" id="edit-name"></div>
+      <div class="mfg"><label>종목코드</label><input type="text" id="edit-code"></div>
+      <div class="mfg"><label>날짜</label><input type="date" id="edit-date"></div>
+      <div class="mfg"><label>카테고리</label>
+        <select id="edit-cat"><option>국내주식</option><option>미국주식</option><option>ETF</option><option>코인</option><option>기타</option></select>
+      </div>
+      <div class="mfg"><label>거래 유형</label>
+        <select id="edit-type"><option value="매입">매입</option><option value="매도">매도</option></select>
+      </div>
+      <div class="mfg"><label>수량</label><input type="number" id="edit-qty" min="0" step="any"></div>
+      <div class="mfg"><label>단가 (원)</label><input type="number" id="edit-price" min="0" step="any"></div>
+      <div class="mfg"><label>수수료 (원)</label><input type="number" id="edit-fee" min="0" step="any"></div>
+      <div class="mfg" style="grid-column:1/-1"><label>메모</label><textarea id="edit-memo" style="min-height:54px"></textarea></div>
+    </div>
+    <div class="modal-err" id="edit-err"></div>
+    <div class="modal-btns">
+      <button class="mbtn mbtn-g" onclick="closeEditModal()">취소</button>
+      <button class="mbtn mbtn-p" onclick="saveEdit()">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- 계산기 -->
+<div class="calc-overlay" id="calc-overlay" style="display:none" onclick="if(event.target===this)closeCalc()">
+  <div class="calc-modal">
+    <div class="calc-title" id="calc-title">수량 계산기</div>
+    <div class="calc-sub" id="calc-sub">계산 후 확인을 누르면 입력됩니다</div>
+    <div class="calc-display">
+      <div class="calc-expr" id="calc-expr"></div>
+      <div class="calc-val" id="calc-val">0</div>
+    </div>
+    <div class="calc-grid">
+      <button class="ck op" onclick="calcInput('C')">C</button>
+      <button class="ck op" onclick="calcInput('±')">±</button>
+      <button class="ck op" onclick="calcInput('%')">%</button>
+      <button class="ck op" onclick="calcInput('/')">÷</button>
+      <button class="ck" onclick="calcInput('7')">7</button><button class="ck" onclick="calcInput('8')">8</button><button class="ck" onclick="calcInput('9')">9</button>
+      <button class="ck op" onclick="calcInput('*')">×</button>
+      <button class="ck" onclick="calcInput('4')">4</button><button class="ck" onclick="calcInput('5')">5</button><button class="ck" onclick="calcInput('6')">6</button>
+      <button class="ck op" onclick="calcInput('-')">−</button>
+      <button class="ck" onclick="calcInput('1')">1</button><button class="ck" onclick="calcInput('2')">2</button><button class="ck" onclick="calcInput('3')">3</button>
+      <button class="ck op" onclick="calcInput('+')">+</button>
+      <button class="ck zero" onclick="calcInput('0')">0</button>
+      <button class="ck" onclick="calcInput('.')">.</button>
+      <button class="ck eq" onclick="calcInput('=')">=</button>
+    </div>
+    <button class="calc-confirm" onclick="confirmCalc()">확인 — 입력하기</button>
+    <button class="calc-cancel" onclick="closeCalc()">취소</button>
+  </div>
+</div>
+
+<div class="app">
+  <div class="topbar">
+    <span class="topbar-title">📈 주식 일기장 <span class="topbar-user" id="topbar-user"></span></span>
+    <div class="topbar-right">
+      <a class="ttab" href="calendar.html">캘린더</a>
+      <a class="ttab" href="list.html">내역</a>
+      <a class="ttab" href="stats.html">통계</a>
+      <button class="api-btn" onclick="logout()" style="color:#e24b4a;border-color:#e24b4a">로그아웃</button>
+    </div>
+  </div>
+
+  <div class="cal-header">
+    <div class="cal-nav">
+      <button class="nav-btn" onclick="moveM(-1)">&#8249;</button>
+      <span class="cal-month" id="cal-lbl"></span>
+      <button class="nav-btn" onclick="moveM(1)">&#8250;</button>
+    </div>
+    <div class="legend">
+      <span><span class="dot" style="background:#1D9E75"></span>매입</span>
+      <span><span class="dot" style="background:#e24b4a"></span>매도</span>
+    </div>
+  </div>
+  <div class="cal-wrap">
+    <div class="day-labels">
+      <span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span>
+    </div>
+    <div class="cells" id="cells"></div>
+  </div>
+  <div id="panel" style="display:none">
+    <div class="panel">
+      <div class="ph">
+        <span class="pt" id="panel-title"></span>
+        <button class="pc" onclick="closePanel()">&#215;</button>
+      </div>
+      <div id="day-list"></div>
+      <div class="form-sep">
+        <div class="form-sep-title">새 거래 등록</div>
+        <div class="fg2">
+          <div class="fg full">
+            <label>종목명</label>
+            <div class="ac-wrap">
+              <input id="fn" type="text" placeholder="종목명 또는 코드 검색..." autocomplete="off" oninput="onStockInput()" onkeydown="onStockKeydown(event)">
+              <div class="ac-list" id="ac-list" style="display:none"></div>
+            </div>
+          </div>
+          <div class="fg">
+            <label>종목코드</label>
+            <div class="input-with-btn">
+              <input id="fcode" type="text" placeholder="자동입력" maxlength="10" readonly style="background:#f9f9f9;color:#888">
+              <button class="fetch-price-btn" onclick="fetchPriceForForm()">시세↓</button>
+            </div>
+          </div>
+          <div class="fg">
+            <label>카테고리</label>
+            <select id="fc"><option>국내주식</option><option>미국주식</option><option>ETF</option><option>코인</option><option>기타</option></select>
+          </div>
+          <div class="fg"><label>거래 유형</label><select id="ft"><option value="매입">매입</option><option value="매도">매도</option></select></div>
+          <div class="fg">
+            <label>수량 (주)</label>
+            <div class="input-with-btn">
+              <input id="fq" type="number" min="0" step="any" placeholder="0">
+              <button class="fetch-price-btn" onclick="openCalc('qty')">🧮</button>
+            </div>
+          </div>
+          <div class="fg">
+            <label>단가 (원)</label>
+            <div class="input-with-btn">
+              <input id="fp" type="number" min="0" step="any" placeholder="0">
+              <button class="fetch-price-btn" onclick="openCalc('price')">🧮</button>
+            </div>
+          </div>
+          <div class="fg"><label>수수료 (원, 선택)</label><input id="ff" type="number" min="0" step="any" placeholder="0"></div>
+          <div class="fg full"><label>메모</label><textarea id="fm" placeholder="매매 이유, 목표가, 시장 상황 등..."></textarea></div>
+        </div>
+        <div class="brow">
+          <button class="btn btn-g" onclick="closePanel()">취소</button>
+          <button class="btn btn-p" onclick="addTrade()">등록하기</button>
+        </div>
+        <div class="fmsg" id="fmsg"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="../js/auth.js"></script>
+<script src="../js/storage.js"></script>
+<script src="../js/trades.js"></script>
+<script>
+// ── 세션 확인 ─────────────────────────────────────────────
+const session = Session.require('pages/calendar.html');
+const { userId, masterPw } = session;
+document.getElementById('topbar-user').textContent = userId;
+Logger.init();
+
+let trades = [];
+let apiCreds = null;
+let cy = new Date().getFullYear(), cm = new Date().getMonth(), sel = null;
+const todayStr = new Date().toISOString().slice(0,10);
+
+async function init() {
+  trades = await Storage.loadTrades(userId, masterPw);
+  apiCreds = await Storage.loadCreds(userId, masterPw);
+  renderCal();
+  log(`캘린더 로드 완료 (${trades.length}건)`, 'ok');
+}
+
+function logout() {
+  Session.clear();
+  location.href = '../index.html';
+}
+
+// ── 캘린더 ────────────────────────────────────────────────
+function moveM(d) {
+  cm += d; if(cm>11){cm=0;cy++;} if(cm<0){cm=11;cy--;} closePanel(); renderCal();
+}
+
+function renderCal() {
+  document.getElementById('cal-lbl').textContent = `${cy}년 ${cm+1}월`;
+  const first = new Date(cy,cm,1), last = new Date(cy,cm+1,0), sd = first.getDay();
+  const map = {};
+  trades.forEach(t => { if(!map[t.date]) map[t.date]=[]; map[t.date].push(t); });
+  const cells = document.getElementById('cells');
+  cells.innerHTML = '';
+  const total = Math.ceil((sd+last.getDate())/7)*7;
+  for(let i=0;i<total;i++){
+    const dn=i-sd+1, d=new Date(cy,cm,dn), ds=d.toISOString().slice(0,10);
+    const isCur=d.getMonth()===cm, isToday=ds===todayStr;
+    const isSun=d.getDay()===0, isSat=d.getDay()===6, isSel=ds===sel;
+    const c=document.createElement('div');
+    c.className='cell'+(isCur?'':' other')+(isToday?' today':'')+(isSel?' sel':'')+(isSun?' sun':'')+(isSat?' sat':'');
+    c.onclick=()=>selectDate(ds);
+    const dt=map[ds]||[];
+    let html=`<div class="dnum">${d.getDate()}</div>`;
+    dt.slice(0,2).forEach(t=>{html+=`<div class="ctrade ${t.type==='매입'?'buy':'sell'}">${t.name}</div>`;});
+    if(dt.length>2) html+=`<div class="more">+${dt.length-2}건</div>`;
+    c.innerHTML=html; cells.appendChild(c);
+  }
+}
+
+function selectDate(ds) {
+  sel=ds;
+  ['fn','fq','fp','ff','fm'].forEach(id=>{document.getElementById(id).value='';});
+  document.getElementById('fcode').value='';
+  document.getElementById('ac-list').style.display='none';
+  document.getElementById('fmsg').textContent='';
+  const d=new Date(ds);
+  document.getElementById('panel-title').textContent=`${d.getFullYear()}년 ${d.getMonth()+1}월 ${d.getDate()}일`;
+  renderDayList(ds);
+  document.getElementById('panel').style.display='';
+  renderCal();
+  setTimeout(()=>{document.getElementById('panel').scrollIntoView({behavior:'smooth',block:'nearest'});},60);
+}
+
+function renderDayList(ds) {
+  const dl=document.getElementById('day-list');
+  const dt=trades.filter(t=>t.date===ds);
+  if(!dt.length){dl.innerHTML='';return;}
+  dl.innerHTML=dt.map(t=>`
+    <div class="dt-item">
+      <span class="dbadge ${t.type==='매입'?'buy':'sell'}">${t.type}</span>
+      <div>
+        <div class="dname">${t.name} ${t.code?`<span style="font-size:10px;color:#aaa">${t.code}</span>`:''} <span style="font-size:11px;color:#888;font-weight:400">${t.cat}</span></div>
+        <div class="ddetail">${TradeUtils.fmtN(t.qty)}주 × ${TradeUtils.fmtN(t.price)}원 = ${TradeUtils.fmt(t.qty*t.price)}</div>
+        ${t.memo?`<div class="dmemo">${t.memo}</div>`:''}
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px;margin-left:auto">
+        <button class="dedit" onclick="openEditModal(${t.id})">수정</button>
+        <button class="ddel" onclick="delTrade(${t.id})">삭제</button>
+      </div>
+    </div>`).join('');
+}
+
+function closePanel() {
+  sel=null; document.getElementById('panel').style.display='none'; renderCal();
+}
+
+async function addTrade() {
+  if(!sel) return;
+  const name=document.getElementById('fn').value.trim();
+  const code=document.getElementById('fcode').value.trim().toUpperCase();
+  const cat=document.getElementById('fc').value, type=document.getElementById('ft').value;
+  const qty=parseFloat(document.getElementById('fq').value)||0;
+  const price=parseFloat(document.getElementById('fp').value)||0;
+  const fee=parseFloat(document.getElementById('ff').value)||0;
+  const memo=document.getElementById('fm').value.trim();
+  const msg=document.getElementById('fmsg');
+  if(!name||qty<=0||price<=0){msg.style.color='#e24b4a';msg.textContent='종목명, 수량, 단가를 입력해주세요.';return;}
+  trades.push({id:Date.now(),name,code,cat,type,date:sel,qty,price,fee,memo});
+  trades.sort((a,b)=>b.date.localeCompare(a.date));
+  await Storage.saveTrades(userId, masterPw, trades);
+  msg.style.color='#1D9E75'; msg.textContent='✓ 등록되었습니다.';
+  ['fn','fcode','fq','fp','ff','fm'].forEach(id=>{document.getElementById(id).value='';});
+  renderDayList(sel); renderCal();
+  setTimeout(()=>{msg.textContent='';},2000);
+}
+
+async function delTrade(id) {
+  if(!confirm('삭제하시겠습니까?')) return;
+  const scrollY=window.scrollY;
+  trades=trades.filter(t=>t.id!==id);
+  await Storage.saveTrades(userId, masterPw, trades);
+  if(sel) renderDayList(sel);
+  renderCal();
+  requestAnimationFrame(()=>window.scrollTo(0,scrollY));
+}
+
+// ── 거래 수정 ─────────────────────────────────────────────
+function openEditModal(id) {
+  const t=trades.find(t=>t.id===id); if(!t) return;
+  document.getElementById('edit-id').value=id;
+  document.getElementById('edit-name').value=t.name;
+  document.getElementById('edit-code').value=t.code||'';
+  document.getElementById('edit-date').value=t.date;
+  document.getElementById('edit-cat').value=t.cat;
+  document.getElementById('edit-type').value=t.type;
+  document.getElementById('edit-qty').value=t.qty;
+  document.getElementById('edit-price').value=t.price;
+  document.getElementById('edit-fee').value=t.fee||0;
+  document.getElementById('edit-memo').value=t.memo||'';
+  document.getElementById('edit-err').textContent='';
+  document.getElementById('edit-modal').style.display='flex';
+}
+
+function closeEditModal(){document.getElementById('edit-modal').style.display='none';}
+
+async function saveEdit() {
+  const id=Number(document.getElementById('edit-id').value);
+  const name=document.getElementById('edit-name').value.trim();
+  const code=document.getElementById('edit-code').value.trim().toUpperCase();
+  const date=document.getElementById('edit-date').value;
+  const cat=document.getElementById('edit-cat').value, type=document.getElementById('edit-type').value;
+  const qty=parseFloat(document.getElementById('edit-qty').value)||0;
+  const price=parseFloat(document.getElementById('edit-price').value)||0;
+  const fee=parseFloat(document.getElementById('edit-fee').value)||0;
+  const memo=document.getElementById('edit-memo').value.trim();
+  const err=document.getElementById('edit-err');
+  if(!name||qty<=0||price<=0||!date){err.textContent='모든 필드를 입력해주세요.';return;}
+  const idx=trades.findIndex(t=>t.id===id);
+  if(idx===-1){err.textContent='거래를 찾을 수 없습니다.';return;}
+  trades[idx]={...trades[idx],name,code,date,cat,type,qty,price,fee,memo};
+  trades.sort((a,b)=>b.date.localeCompare(a.date));
+  await Storage.saveTrades(userId, masterPw, trades);
+  closeEditModal();
+  if(sel) renderDayList(sel);
+  renderCal();
+  log(`거래 수정 완료: ${name}`, 'ok');
+}
+
+// ── 자동완성 ─────────────────────────────────────────────
+function onStockInput(){
+  const q=document.getElementById('fn').value.trim();
+  const results=AutoComplete.search(q,trades);
+  AutoComplete.render(results, s=>{
+    document.getElementById('fn').value=s.n;
+    document.getElementById('fcode').value=s.c||'';
+    if(s.t) document.getElementById('fc').value=s.t;
+    document.getElementById('ac-list').style.display='none';
+  });
+}
+function onStockKeydown(e){
+  AutoComplete.handleKey(e, s=>{
+    document.getElementById('fn').value=s.n;
+    document.getElementById('fcode').value=s.c||'';
+    if(s.t) document.getElementById('fc').value=s.t;
+    document.getElementById('ac-list').style.display='none';
+  });
+}
+document.addEventListener('click',e=>{if(!e.target.closest('.ac-wrap'))document.getElementById('ac-list').style.display='none';});
+
+// ── KIS 시세 ─────────────────────────────────────────────
+async function fetchPriceForForm(){
+  if(!apiCreds){alert('KIS API 설정이 필요합니다.\n통계 페이지에서 설정해주세요.');return;}
+  const code=document.getElementById('fcode').value.trim();
+  if(!code){alert('종목코드를 입력하세요.');return;}
+  const btn=event.target; btn.textContent='조회중...'; btn.disabled=true;
+  try{
+    const data=await KisAPI.fetchPrice(code,userId,apiCreds);
+    document.getElementById('fp').value=data.price;
+    if(!document.getElementById('fn').value) document.getElementById('fn').value=data.name;
+    const msg=document.getElementById('fmsg');
+    msg.style.color='#1D9E75';
+    msg.textContent=`현재가: ${data.price.toLocaleString('ko-KR')}원 (${data.changeRate>0?'+':''}${data.changeRate}%)`;
+  }catch(e){alert('시세 조회 실패: '+e.message);}
+  finally{btn.textContent='시세↓';btn.disabled=false;}
+}
+
+// ── 계산기 ────────────────────────────────────────────────
+let calcTarget=null,calcCurrent='0',calcExpr='',calcOperand=null,calcOperator=null,calcNewNum=false;
+function openCalc(t){
+  calcTarget=t;calcCurrent='0';calcExpr='';calcOperand=null;calcOperator=null;calcNewNum=false;
+  const existing=document.getElementById(t==='qty'?'fq':'fp').value;
+  if(existing&&Number(existing)>0)calcCurrent=existing;
+  document.getElementById('calc-title').textContent=t==='qty'?'수량 계산기':'단가 계산기';
+  updateCalcDisplay();
+  document.getElementById('calc-overlay').style.display='flex';
+}
+function closeCalc(){document.getElementById('calc-overlay').style.display='none';}
+function confirmCalc(){
+  const val=parseFloat(calcCurrent);
+  if(!isNaN(val)&&val>=0){
+    const id=calcTarget==='qty'?'fq':'fp';
+    document.getElementById(id).value=calcTarget==='qty'?Math.floor(val):val;
+  }
+  closeCalc();
+}
+function calcInput(key){
+  if(key==='C'){calcCurrent='0';calcExpr='';calcOperand=null;calcOperator=null;calcNewNum=false;}
+  else if(key==='±'){calcCurrent=String(parseFloat(calcCurrent)*-1);}
+  else if(key==='%'){calcCurrent=String(parseFloat(calcCurrent)/100);}
+  else if(['+','-','*','/'].includes(key)){
+    calcOperand=parseFloat(calcCurrent);calcOperator=key;
+    calcExpr=`${calcCurrent} ${key==='*'?'×':key==='/'?'÷':key}`;calcNewNum=true;
+  }else if(key==='='){
+    if(calcOperand!==null&&calcOperator){
+      const b=parseFloat(calcCurrent);
+      let r=calcOperator==='+'?calcOperand+b:calcOperator==='-'?calcOperand-b:calcOperator==='*'?calcOperand*b:b!==0?calcOperand/b:0;
+      calcExpr=`${calcOperand} ${calcOperator==='*'?'×':calcOperator==='/'?'÷':calcOperator} ${b} =`;
+      calcCurrent=String(parseFloat(r.toFixed(6)));calcOperand=null;calcOperator=null;calcNewNum=false;
+    }
+  }else if(key==='.'){if(calcNewNum){calcCurrent='0.';calcNewNum=false;return;}if(!calcCurrent.includes('.'))calcCurrent+='.';}
+  else{if(calcNewNum||calcCurrent==='0'){calcCurrent=key;calcNewNum=false;}else if(calcCurrent.length<12)calcCurrent+=key;}
+  updateCalcDisplay();
+}
+function updateCalcDisplay(){
+  document.getElementById('calc-expr').textContent=calcExpr;
+  const n=parseFloat(calcCurrent);
+  document.getElementById('calc-val').textContent=isNaN(n)?calcCurrent:(calcCurrent.endsWith('.')?calcCurrent:n.toLocaleString('ko-KR'));
+}
+
+init();
+</script>
+</body>
+</html>

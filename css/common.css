@@ -1,0 +1,106 @@
+/* ═══════════════════════════════════════
+   공통 스타일 — 주식 일기장 ver0.0.03
+   ═══════════════════════════════════════ */
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f5;color:#1a1a1a;font-size:14px}
+.app{max-width:900px;margin:0 auto;background:#fff;min-height:100vh}
+
+/* topbar */
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:1rem 1.5rem;border-bottom:1px solid #e5e5e5;background:#fff;position:sticky;top:0;z-index:100}
+.topbar-title{font-size:16px;font-weight:600;letter-spacing:-0.3px;display:flex;align-items:center;gap:8px}
+.topbar-user{font-size:11px;color:#aaa;font-weight:400;background:#f5f5f5;padding:2px 8px;border-radius:10px}
+.topbar-right{display:flex;align-items:center;gap:8px}
+.ttabs{display:flex;gap:4px}
+.ttab{padding:6px 14px;font-size:13px;background:none;border:1px solid #ddd;border-radius:8px;cursor:pointer;color:#666;text-decoration:none;display:inline-block}
+.ttab.active,.ttab:hover{background:#1a1a1a;color:#fff;border-color:#1a1a1a}
+.api-btn{padding:6px 12px;font-size:12px;background:none;border:1px solid #ddd;border-radius:8px;cursor:pointer;color:#666;display:flex;align-items:center;gap:4px}
+.api-btn.synced{border-color:#378ADD;color:#378ADD}
+.api-btn.synced::before{content:'●';font-size:8px}
+.api-btn.connected::before{content:'●';font-size:8px}
+.api-btn:not(.connected)::before{content:'○';font-size:8px}
+
+/* 모달 */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:500;display:flex;align-items:center;justify-content:center}
+.modal{background:#fff;border-radius:16px;padding:1.75rem;width:400px;max-width:calc(100vw - 2rem)}
+.modal-title{font-size:16px;font-weight:600;margin-bottom:.25rem}
+.modal-sub{font-size:12px;color:#888;margin-bottom:1.5rem}
+.mfg{display:flex;flex-direction:column;gap:4px;margin-bottom:12px}
+.mfg label{font-size:11px;color:#666;font-weight:500}
+.mfg input,.mfg select,.mfg textarea{font-size:13px;border:1px solid #ddd;border-radius:8px;padding:8px 10px;background:#fff;color:#1a1a1a;width:100%}
+.mfg input:focus,.mfg select:focus,.mfg textarea:focus{outline:none;border-color:#999}
+.modal-note{font-size:11px;color:#888;background:#f9f9f9;border-radius:8px;padding:10px 12px;margin-bottom:14px;line-height:1.6}
+.modal-note strong{color:#555}
+.modal-btns{display:flex;justify-content:flex-end;gap:8px;margin-top:12px}
+.modal-err{font-size:12px;color:#e24b4a;margin-bottom:8px;min-height:16px}
+.mbtn{padding:8px 18px;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer}
+.mbtn-p{background:#1a1a1a;color:#fff;border:none}
+.mbtn-p:hover{background:#333}
+.mbtn-g{background:#fff;border:1px solid #ddd;color:#666}
+.mbtn-g:hover{background:#f5f5f5}
+.mbtn-r{background:#fff;border:1px solid #e24b4a;color:#e24b4a}
+.mbtn-r:hover{background:#fff5f5}
+
+/* 폼 */
+.fg2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.fg{display:flex;flex-direction:column;gap:4px}
+.fg.full{grid-column:1/-1}
+.fg label{font-size:11px;color:#666;font-weight:500}
+input,select,textarea{font-size:13px;border:1px solid #ddd;border-radius:8px;padding:8px 10px;background:#fff;color:#1a1a1a;width:100%}
+input:focus,select:focus,textarea:focus{outline:none;border-color:#999}
+textarea{resize:vertical;min-height:60px}
+.input-with-btn{display:flex;gap:6px}
+.input-with-btn input{flex:1}
+.fetch-price-btn{padding:8px 10px;font-size:12px;background:#f5f5f5;border:1px solid #ddd;border-radius:8px;cursor:pointer;white-space:nowrap;color:#555}
+.fetch-price-btn:hover{background:#eee}
+.brow{display:flex;justify-content:flex-end;gap:8px;margin-top:12px}
+.btn{padding:8px 18px;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer}
+.btn-p{background:#1a1a1a;color:#fff;border:none}
+.btn-p:hover{background:#333}
+.btn-g{background:#fff;border:1px solid #ddd;color:#666}
+.btn-g:hover{background:#f5f5f5}
+.fmsg{font-size:12px;text-align:right;margin-top:6px;min-height:18px}
+
+/* 배지 */
+.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600}
+.badge.buy{background:#E1F5EE;color:#0a5e3f}
+.badge.sell{background:#FEECEC;color:#9b2222}
+
+/* 동기화 */
+.sync-status{font-size:12px;min-height:18px;padding:6px 10px;border-radius:6px;text-align:center}
+.sync-status.ok{background:#E1F5EE;color:#0a5e3f}
+.sync-status.err{background:#fff5f5;color:#e24b4a}
+.sync-status.info{background:#E6F1FB;color:#185FA5}
+
+/* 빈 상태 */
+.empty{text-align:center;padding:3rem;color:#aaa;font-size:13px}
+
+/* 로그 패널 */
+.log-toggle{position:fixed;bottom:16px;right:16px;z-index:800;background:#1a1a1a;color:#fff;border:none;border-radius:20px;padding:7px 14px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:5px;box-shadow:0 2px 8px rgba(0,0,0,.18)}
+.log-toggle .log-dot{width:7px;height:7px;border-radius:50%;background:#1D9E75}
+.log-toggle .log-dot.err{background:#e24b4a}
+.log-toggle .log-dot.warn{background:#EF9F27}
+.log-toggle .log-dot.info{background:#378ADD}
+.log-panel{position:fixed;bottom:52px;right:16px;z-index:800;width:340px;max-width:calc(100vw - 32px);background:#1a1a1a;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.25)}
+.log-panel-header{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid #333}
+.log-panel-title{font-size:12px;font-weight:600;color:#fff}
+.log-ver{font-size:10px;color:#555;font-family:monospace;letter-spacing:0.3px}
+.log-clear{font-size:11px;color:#888;background:none;border:none;cursor:pointer;padding:0}
+.log-clear:hover{color:#ccc}
+.log-list{max-height:240px;overflow-y:auto;padding:6px 0}
+.log-item{display:flex;align-items:flex-start;gap:8px;padding:5px 14px;font-size:11px;border-bottom:1px solid #222}
+.log-item:last-child{border-bottom:none}
+.log-time{color:#555;white-space:nowrap;min-width:44px;font-family:monospace}
+.log-icon{min-width:14px;text-align:center}
+.log-msg{color:#ccc;line-height:1.4;word-break:break-all}
+.log-msg.ok{color:#1D9E75}
+.log-msg.err{color:#e24b4a}
+.log-msg.warn{color:#EF9F27}
+.log-msg.info{color:#378ADD}
+.log-empty{padding:16px;text-align:center;font-size:11px;color:#555}
+
+/* 반응형 */
+@media(max-width:600px){
+  .fg2{grid-template-columns:1fr}
+  .topbar{padding:.75rem 1rem}
+  .ttab{padding:5px 10px;font-size:12px}
+}

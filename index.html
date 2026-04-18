@@ -4,254 +4,63 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>주식 일기장</title>
+<link rel="stylesheet" href="css/common.css">
 <style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f5;color:#1a1a1a;font-size:14px}
-.app{max-width:900px;margin:0 auto;background:#fff;min-height:100vh}
+.hub{max-width:480px;margin:0 auto;padding:2rem 1.5rem;min-height:100vh;display:flex;flex-direction:column}
+.hub-logo{font-size:28px;text-align:center;margin-bottom:.25rem}
+.hub-title{font-size:22px;font-weight:700;text-align:center;letter-spacing:-.5px;margin-bottom:.25rem}
+.hub-sub{font-size:13px;color:#aaa;text-align:center;margin-bottom:2rem}
 
-/* topbar */
-.topbar{display:flex;align-items:center;justify-content:space-between;padding:1rem 1.5rem;border-bottom:1px solid #e5e5e5;background:#fff}
-.topbar-title{font-size:16px;font-weight:600;letter-spacing:-0.3px}
-.topbar-right{display:flex;align-items:center;gap:8px}
-.ttabs{display:flex;gap:4px}
-.ttab{padding:6px 14px;font-size:13px;background:none;border:1px solid #ddd;border-radius:8px;cursor:pointer;color:#666}
-.ttab.active{background:#1a1a1a;color:#fff;border-color:#1a1a1a}
-.api-btn{padding:6px 12px;font-size:12px;background:none;border:1px solid #ddd;border-radius:8px;cursor:pointer;color:#666;display:flex;align-items:center;gap:4px}
-.api-btn.synced{border-color:#378ADD;color:#378ADD}
-.api-btn.synced::before{content:'●';font-size:8px}
-.sync-status{font-size:12px;min-height:18px;padding:6px 10px;border-radius:6px;text-align:center}
-.sync-status.ok{background:#E1F5EE;color:#0a5e3f}
-.sync-status.err{background:#fff5f5;color:#e24b4a}
-.sync-status.info{background:#E6F1FB;color:#185FA5}
-.api-btn.connected::before{content:'●';font-size:8px}
-.api-btn:not(.connected)::before{content:'○';font-size:8px}
+/* 계정 목록 */
+.account-list{display:flex;flex-direction:column;gap:10px;margin-bottom:1.5rem}
+.account-card{display:flex;align-items:center;gap:12px;padding:14px 16px;background:#f9f9f9;border-radius:12px;border:1px solid #eee;cursor:pointer;transition:all .15s}
+.account-card:hover{background:#f0f0f0;border-color:#ddd}
+.account-avatar{width:38px;height:38px;border-radius:50%;background:#1a1a1a;color:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;flex-shrink:0}
+.account-info{flex:1}
+.account-name{font-size:14px;font-weight:600}
+.account-meta{font-size:11px;color:#aaa;margin-top:2px}
+.account-arrow{color:#ccc;font-size:18px}
+.account-del{background:none;border:none;color:#e24b4a;cursor:pointer;font-size:11px;padding:4px 8px;border-radius:6px;opacity:0;transition:opacity .15s}
+.account-card:hover .account-del{opacity:1}
 
-/* 보안 잠금 화면 */
-.lock-screen{position:fixed;inset:0;background:#f5f5f5;display:flex;align-items:center;justify-content:center;z-index:1000}
-.lock-card{background:#fff;border-radius:16px;padding:2rem;width:340px;box-shadow:0 4px 24px rgba(0,0,0,.08)}
-.lock-icon{font-size:32px;text-align:center;margin-bottom:1rem}
-.lock-title{font-size:17px;font-weight:600;text-align:center;margin-bottom:.25rem}
-.lock-sub{font-size:12px;color:#888;text-align:center;margin-bottom:1.5rem}
-.lock-input{width:100%;padding:10px 14px;border:1px solid #ddd;border-radius:10px;font-size:14px;margin-bottom:10px}
-.lock-input:focus{outline:none;border-color:#999}
-.lock-btn{width:100%;padding:11px;background:#1a1a1a;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:500;cursor:pointer;margin-bottom:8px}
-.lock-btn:hover{background:#333}
-.lock-btn.sec{background:#fff;color:#666;border:1px solid #ddd}
-.lock-btn.sec:hover{background:#f5f5f5}
-.lock-err{font-size:12px;color:#e24b4a;text-align:center;min-height:18px;background:#fff5f5;border-radius:6px;padding:0;transition:padding .15s}
-.lock-err:not(:empty){padding:7px 10px;margin-bottom:4px}
+.divider{display:flex;align-items:center;gap:10px;margin-bottom:1.25rem}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:#e5e5e5}
+.divider span{font-size:12px;color:#bbb}
 
-/* API 설정 모달 */
-.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:500;display:flex;align-items:center;justify-content:center}
-.modal{background:#fff;border-radius:16px;padding:1.75rem;width:400px;max-width:calc(100vw - 2rem)}
-.modal-title{font-size:16px;font-weight:600;margin-bottom:.25rem}
-.modal-sub{font-size:12px;color:#888;margin-bottom:1.5rem}
-.mfg{display:flex;flex-direction:column;gap:4px;margin-bottom:12px}
-.mfg label{font-size:11px;color:#666;font-weight:500}
-.mfg input,.mfg select{font-size:13px;border:1px solid #ddd;border-radius:8px;padding:8px 10px;background:#fff;color:#1a1a1a;width:100%}
-.mfg input:focus,.mfg select:focus{outline:none;border-color:#999}
-.modal-note{font-size:11px;color:#888;background:#f9f9f9;border-radius:8px;padding:10px 12px;margin-bottom:14px;line-height:1.6}
-.modal-note strong{color:#555}
-.modal-btns{display:flex;justify-content:flex-end;gap:8px}
-.mbtn{padding:8px 18px;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer}
-.mbtn-p{background:#1a1a1a;color:#fff;border:none}
-.mbtn-p:hover{background:#333}
-.mbtn-g{background:#fff;border:1px solid #ddd;color:#666}
-.mbtn-g:hover{background:#f5f5f5}
-.mbtn-r{background:#fff;border:1px solid #e24b4a;color:#e24b4a}
-.mbtn-r:hover{background:#fff5f5}
-.modal-err{font-size:12px;color:#e24b4a;margin-bottom:8px;min-height:16px}
+.add-account-btn{width:100%;padding:12px;background:#fff;border:1px dashed #ccc;border-radius:12px;color:#888;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:all .15s}
+.add-account-btn:hover{background:#f9f9f9;border-color:#999;color:#555}
 
-/* 캘린더 */
-.cal-header{display:flex;align-items:center;justify-content:space-between;padding:.75rem 1.5rem;border-bottom:1px solid #e5e5e5}
-.cal-nav{display:flex;align-items:center;gap:10px}
-.nav-btn{background:none;border:1px solid #ddd;border-radius:8px;padding:5px 12px;cursor:pointer;font-size:15px;color:#1a1a1a}
-.nav-btn:hover{background:#f5f5f5}
-.cal-month{font-size:15px;font-weight:600;min-width:110px;text-align:center}
-.legend{display:flex;gap:14px;font-size:12px;color:#666}
-.dot{width:8px;height:8px;border-radius:50%;display:inline-block;vertical-align:middle;margin-right:3px}
-.cal-wrap{padding:.5rem 1rem .5rem}
-.day-labels{display:grid;grid-template-columns:repeat(7,1fr);text-align:center;padding:8px 0 4px}
-.day-labels span{font-size:11px;font-weight:600;color:#888}
-.day-labels span:first-child{color:#e24b4a}
-.day-labels span:last-child{color:#378ADD}
-.cells{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
-.cell{min-height:75px;border-radius:8px;padding:5px 6px;cursor:pointer;border:1px solid transparent;transition:background .1s}
-.cell:hover{background:#f8f8f8;border-color:#e5e5e5}
-.cell.today{border:2px solid #1a1a1a}
-.cell.sel{background:#f0f0f0;border-color:#999}
-.cell.other .dnum{color:#ccc}
-.dnum{font-size:12px;font-weight:600;margin-bottom:3px}
-.cell.sun .dnum{color:#e24b4a}
-.cell.sat .dnum{color:#378ADD}
-.ctrade{font-size:10px;padding:1px 5px;border-radius:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:2px}
-.ctrade.buy{background:#E1F5EE;color:#0a5e3f}
-.ctrade.sell{background:#FEECEC;color:#9b2222}
-.more{font-size:10px;color:#999}
+/* 로그인 카드 */
+.login-card{background:#fff;border-radius:16px;padding:1.75rem;border:1px solid #e5e5e5;box-shadow:0 2px 16px rgba(0,0,0,.06);margin-bottom:1rem}
+.login-back{background:none;border:none;color:#888;cursor:pointer;font-size:13px;margin-bottom:1rem;display:flex;align-items:center;gap:4px;padding:0}
+.login-back:hover{color:#333}
+.login-avatar{width:48px;height:48px;border-radius:50%;background:#1a1a1a;color:#fff;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;margin:0 auto 1rem}
+.login-name{font-size:17px;font-weight:600;text-align:center;margin-bottom:.25rem}
+.login-sub{font-size:12px;color:#aaa;text-align:center;margin-bottom:1.5rem}
+.login-input{width:100%;padding:11px 14px;border:1px solid #ddd;border-radius:10px;font-size:14px;margin-bottom:10px}
+.login-input:focus{outline:none;border-color:#999}
+.login-btn{width:100%;padding:12px;background:#1a1a1a;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:500;cursor:pointer;margin-bottom:6px}
+.login-btn:hover{background:#333}
+.login-err{font-size:12px;color:#e24b4a;text-align:center;min-height:18px;background:#fff5f5;border-radius:6px;transition:padding .15s}
+.login-err:not(:empty){padding:7px 10px;margin-bottom:6px}
 
-/* 패널 */
-.panel{border-top:1px solid #e5e5e5;padding:1.25rem 1.5rem}
-.ph{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem}
-.pt{font-size:15px;font-weight:600}
-.pc{background:none;border:none;font-size:22px;cursor:pointer;color:#999;line-height:1;padding:0 4px}
-.pc:hover{color:#333}
-.dt-item{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:#f9f9f9;border-radius:8px;margin-bottom:6px;border:1px solid #eee}
-.dbadge{font-size:11px;padding:2px 8px;border-radius:10px;font-weight:600;white-space:nowrap;margin-top:1px}
-.dbadge.buy{background:#E1F5EE;color:#0a5e3f}
-.dbadge.sell{background:#FEECEC;color:#9b2222}
-.dname{font-size:13px;font-weight:600}
-.ddetail{font-size:12px;color:#666;margin-top:2px}
-.dmemo{font-size:11px;color:#888;font-style:italic;margin-top:3px}
-.ddel{margin-left:auto;background:none;border:none;color:#e24b4a;cursor:pointer;font-size:12px;padding:2px 6px;white-space:nowrap}
-.ddel:hover{text-decoration:underline}
+/* 신규 계정 폼 */
+.new-account-form{background:#fff;border-radius:16px;padding:1.75rem;border:1px solid #e5e5e5;box-shadow:0 2px 16px rgba(0,0,0,.06)}
+.new-form-title{font-size:15px;font-weight:600;margin-bottom:.25rem}
+.new-form-sub{font-size:12px;color:#888;margin-bottom:1.25rem}
+.new-input{width:100%;padding:10px 14px;border:1px solid #ddd;border-radius:10px;font-size:13px;margin-bottom:8px}
+.new-input:focus{outline:none;border-color:#999}
+.new-btns{display:flex;gap:8px;margin-top:4px}
+.new-btn-p{flex:1;padding:10px;background:#1a1a1a;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:500;cursor:pointer}
+.new-btn-p:hover{background:#333}
+.new-btn-g{flex:1;padding:10px;background:#fff;border:1px solid #ddd;border-radius:10px;font-size:13px;color:#666;cursor:pointer}
+.new-btn-g:hover{background:#f5f5f5}
+.new-err{font-size:12px;color:#e24b4a;min-height:16px;margin-bottom:4px}
 
-/* 폼 */
-.form-sep{border-top:1px solid #e5e5e5;padding-top:1rem;margin-top:.75rem}
-.form-sep-title{font-size:13px;font-weight:600;color:#555;margin-bottom:12px}
-.fg2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.fg{display:flex;flex-direction:column;gap:4px}
-.fg.full{grid-column:1/-1}
-.fg label{font-size:11px;color:#666;font-weight:500}
-input,select,textarea{font-size:13px;border:1px solid #ddd;border-radius:8px;padding:8px 10px;background:#fff;color:#1a1a1a;width:100%}
-input:focus,select:focus,textarea:focus{outline:none;border-color:#999}
-textarea{resize:vertical;min-height:60px}
-.input-with-btn{display:flex;gap:6px}
-.input-with-btn input{flex:1}
-.fetch-price-btn{padding:8px 10px;font-size:12px;background:#f5f5f5;border:1px solid #ddd;border-radius:8px;cursor:pointer;white-space:nowrap;color:#555}
-.fetch-price-btn:hover{background:#eee}
-.brow{display:flex;justify-content:flex-end;gap:8px;margin-top:12px}
-.btn{padding:8px 18px;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer}
-.btn-p{background:#1a1a1a;color:#fff;border:none}
-.btn-p:hover{background:#333}
-.btn-g{background:#fff;border:1px solid #ddd;color:#666}
-.btn-g:hover{background:#f5f5f5}
-.fmsg{font-size:12px;text-align:right;margin-top:6px;min-height:18px}
-
-/* 종목 자동완성 */
-.ac-wrap{position:relative}
-.ac-list{position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid #ddd;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.1);z-index:200;max-height:180px;overflow-y:auto;margin-top:2px}
-.ac-item{padding:8px 12px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;font-size:13px}
-.ac-item:hover,.ac-item.active{background:#f5f5f5}
-.ac-item-name{font-weight:500}
-.ac-item-code{font-size:11px;color:#aaa;font-family:monospace}
-.ac-item-cat{font-size:10px;color:#888;background:#f0f0f0;padding:1px 6px;border-radius:4px}
-
-/* 계산기 모달 */
-.calc-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:600;display:flex;align-items:flex-end;justify-content:center}
-.calc-modal{background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:400px;padding:1.5rem 1.5rem 2rem}
-.calc-title{font-size:15px;font-weight:600;margin-bottom:4px}
-.calc-sub{font-size:12px;color:#888;margin-bottom:1rem}
-.calc-display{background:#f5f5f5;border-radius:10px;padding:12px 16px;margin-bottom:12px;text-align:right}
-.calc-expr{font-size:12px;color:#aaa;min-height:16px;margin-bottom:2px}
-.calc-val{font-size:26px;font-weight:600;letter-spacing:-0.5px}
-.calc-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}
-.ck{padding:14px 0;font-size:16px;font-weight:500;border:none;border-radius:10px;cursor:pointer;background:#f5f5f5;color:#1a1a1a}
-.ck:active{transform:scale(.95)}
-.ck.op{background:#e8e8e8;color:#1a1a1a}
-.ck.eq{background:#1a1a1a;color:#fff}
-.ck.del{background:#e8e8e8}
-.ck.zero{grid-column:span 2}
-.calc-confirm{width:100%;padding:13px;background:#1a1a1a;color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:500;cursor:pointer;margin-top:4px}
-.calc-confirm:hover{background:#333}
-.calc-cancel{width:100%;padding:10px;background:none;border:none;color:#888;font-size:13px;cursor:pointer;margin-top:6px}
-
-/* 내역 */
-.list-wrap{padding:1rem 1.5rem 2rem}
-.lfilters{display:flex;gap:8px;margin-bottom:14px}
-.lfilters select{font-size:12px;padding:5px 8px;width:auto}
-table{width:100%;border-collapse:collapse;font-size:13px}
-th{text-align:left;padding:8px 10px;font-size:11px;font-weight:600;color:#888;border-bottom:1px solid #e5e5e5;text-transform:uppercase;letter-spacing:.3px}
-td{padding:8px 10px;border-bottom:1px solid #f0f0f0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600}
-.badge.buy{background:#E1F5EE;color:#0a5e3f}
-.badge.sell{background:#FEECEC;color:#9b2222}
-
-/* 통계 */
-.smetrics{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;padding:1.25rem 1.5rem 0}
-.metric{background:#f9f9f9;border-radius:8px;padding:1rem;border:1px solid #eee}
-.ml{font-size:11px;color:#888;margin-bottom:4px;font-weight:500}
-.mv{font-size:20px;font-weight:600}
-.profit{color:#1D9E75}.loss{color:#e24b4a}
-
-/* 현재가 섹션 */
-.price-section{padding:1.25rem 1.5rem 0}
-.price-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
-.price-title{font-size:13px;font-weight:600;color:#555}
-.refresh-btn{display:flex;align-items:center;gap:4px;padding:5px 12px;font-size:12px;background:#fff;border:1px solid #ddd;border-radius:8px;cursor:pointer;color:#555}
-.refresh-btn:hover{background:#f5f5f5}
-.refresh-btn.loading{opacity:.6;pointer-events:none}
-.price-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-bottom:1rem}
-.price-card{background:#f9f9f9;border-radius:10px;padding:12px 14px;border:1px solid #eee}
-.pc-name{font-size:13px;font-weight:600;margin-bottom:2px}
-.pc-code{font-size:10px;color:#aaa;margin-bottom:8px}
-.pc-price{font-size:18px;font-weight:600;margin-bottom:2px}
-.pc-change{font-size:11px}
-.pc-change.up{color:#1D9E75}
-.pc-change.down{color:#e24b4a}
-.pc-eval{font-size:11px;color:#888;margin-top:6px;padding-top:6px;border-top:1px solid #eee}
-.pc-eval-pl{font-weight:600}
-.pc-na{font-size:12px;color:#aaa;margin-top:4px}
-.price-updated{font-size:11px;color:#aaa;text-align:right;margin-bottom:1rem}
-.no-api-notice{background:#f9f9f9;border-radius:10px;padding:1rem 1.25rem;border:1px dashed #ddd;font-size:12px;color:#888;text-align:center}
-.no-api-notice button{margin-top:6px;padding:5px 14px;font-size:12px;background:#1a1a1a;color:#fff;border:none;border-radius:6px;cursor:pointer}
-
-.catsec{padding:1rem 1.5rem 2rem}
-.sec-title{font-size:13px;font-weight:600;color:#666;margin-bottom:10px;margin-top:16px}
-.ccard{background:#f9f9f9;border-radius:12px;padding:1rem 1.25rem;margin-bottom:10px;border:1px solid #eee}
-.cname{font-size:14px;font-weight:600;margin-bottom:10px}
-.crow{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
-.ci label{font-size:10px;color:#888;font-weight:500}
-.cv{font-size:13px;font-weight:600;margin-top:3px}
-.bar{height:6px;background:#e5e5e5;border-radius:3px;margin-top:10px;overflow:hidden}
-.bfill{height:100%;border-radius:3px;background:#1D9E75;transition:width .4s}
-.bfill.neg{background:#e24b4a}
-.empty{text-align:center;padding:3rem;color:#aaa;font-size:13px}
-
-@media(max-width:600px){
-  .fg2{grid-template-columns:1fr}
-  .smetrics{grid-template-columns:1fr 1fr}
-  .crow{grid-template-columns:1fr 1fr}
-  .cal-header{padding:.75rem 1rem}
-  .topbar,.panel,.list-wrap,.catsec,.price-section{padding-left:1rem;padding-right:1rem}
-  .price-cards{grid-template-columns:1fr 1fr}
-  /* 모바일 캘린더: 셀 높이 줄이고 종목명 숨김 처리 개선 */
-  .cell{min-height:52px;padding:3px 4px}
-  .dnum{font-size:11px;margin-bottom:2px}
-  .ctrade{font-size:9px;padding:1px 3px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .more{font-size:9px}
-  /* 내역 탭 모바일: 가로 스크롤 */
-  .list-wrap{overflow-x:auto}
-  table{min-width:640px}
-  .lfilters{flex-wrap:wrap;gap:6px}
-  .lfilters input{width:100px}
-}
-
-/* 로그 패널 */
-.log-toggle{position:fixed;bottom:16px;right:16px;z-index:800;background:#1a1a1a;color:#fff;border:none;border-radius:20px;padding:7px 14px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:5px;box-shadow:0 2px 8px rgba(0,0,0,.18)}
-.log-toggle .log-dot{width:7px;height:7px;border-radius:50%;background:#1D9E75}
-.log-toggle .log-dot.err{background:#e24b4a}
-.log-toggle .log-dot.warn{background:#EF9F27}
-.log-toggle .log-dot.info{background:#378ADD}
-.log-panel{position:fixed;bottom:52px;right:16px;z-index:800;width:340px;max-width:calc(100vw - 32px);background:#1a1a1a;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.25)}
-.log-panel-header{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid #333}
-.log-panel-title{font-size:12px;font-weight:600;color:#fff}
-.log-clear{font-size:11px;color:#888;background:none;border:none;cursor:pointer;padding:0}
-.log-clear:hover{color:#ccc}
-.log-list{max-height:240px;overflow-y:auto;padding:6px 0}
-.log-item{display:flex;align-items:flex-start;gap:8px;padding:5px 14px;font-size:11px;border-bottom:1px solid #222}
-.log-item:last-child{border-bottom:none}
-.log-time{color:#555;white-space:nowrap;min-width:44px;font-family:monospace}
-.log-icon{min-width:14px;text-align:center}
-.log-msg{color:#ccc;line-height:1.4;word-break:break-all}
-.log-msg.ok{color:#1D9E75}
-.log-msg.err{color:#e24b4a}
-.log-msg.warn{color:#EF9F27}
-.log-msg.info{color:#378ADD}
-.log-empty{padding:16px;text-align:center;font-size:11px;color:#555}
+.hub-footer{margin-top:auto;padding-top:2rem;text-align:center;font-size:11px;color:#ccc}
 </style>
 </head>
 <body>
-
 <!-- 로그 패널 -->
 <button class="log-toggle" id="log-toggle-btn" onclick="toggleLog()">
   <span class="log-dot" id="log-dot"></span> LOG
@@ -259,7 +68,7 @@ td{padding:8px 10px;border-bottom:1px solid #f0f0f0;overflow:hidden;text-overflo
 <div class="log-panel" id="log-panel" style="display:none">
   <div class="log-panel-header">
     <span class="log-panel-title">실행 로그</span>
-    <span style="font-size:10px;color:#555;font-family:monospace;letter-spacing:0.3px" id="version-badge">ver0.0.02</span>
+    <span class="log-ver" id="version-badge"></span>
     <button class="log-clear" onclick="clearLog()">전체 삭제</button>
   </div>
   <div class="log-list" id="log-list">
@@ -267,1483 +76,223 @@ td{padding:8px 10px;border-bottom:1px solid #f0f0f0;overflow:hidden;text-overflo
   </div>
 </div>
 
-<!-- 잠금 화면 -->
-<div class="lock-screen" id="lock-screen">
-  <div class="lock-card">
-    <div class="lock-icon">🔐</div>
-    <div class="lock-title" id="lock-title">주식 일기장</div>
-    <div class="lock-sub" id="lock-sub">비밀번호를 입력하세요</div>
-    <input class="lock-input" type="password" id="lock-pw" placeholder="비밀번호" autocomplete="current-password">
-    <input class="lock-input" type="password" id="lock-pw2" placeholder="비밀번호 확인" autocomplete="new-password" style="display:none">
-    <div class="lock-err" id="lock-err"></div>
-    <button class="lock-btn" id="lock-submit-btn">잠금 해제</button>
-    <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
-      <div style="flex:1;height:1px;background:#eee"></div>
-      <span style="font-size:11px;color:#ccc">또는</span>
-      <div style="flex:1;height:1px;background:#eee"></div>
-    </div>
-    <button class="lock-btn sec" id="lock-new-btn">🗑 데이터 초기화 (비번 분실)</button>
+<div class="hub">
+  <div style="margin-top:2.5rem margin-bottom:.5rem">
+    <div class="hub-logo">📈</div>
+    <div class="hub-title">주식 일기장</div>
+    <div class="hub-sub">계정을 선택하거나 새로 만드세요</div>
   </div>
+
+  <!-- 구버전 데이터 감지 배너 -->
+  <div id="legacy-banner" style="display:none;background:#FFF8E6;border:1px solid #EFD080;border-radius:12px;padding:14px 16px;margin-bottom:1.25rem;font-size:12px;line-height:1.6">
+    <div style="font-weight:600;color:#7A5C00;margin-bottom:4px">⚠ 이전 버전 데이터가 감지되었습니다</div>
+    <div style="color:#7A5C00">새 버전은 계정별 데이터 구조로 변경되었습니다.<br>기존 데이터는 CSV로 백업 후 초기화를 권장합니다.</div>
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <button onclick="clearLegacyData()" style="padding:6px 14px;font-size:12px;background:#1a1a1a;color:#fff;border:none;border-radius:8px;cursor:pointer">🗑 구버전 데이터 초기화</button>
+      <button onclick="dismissLegacyBanner()" style="padding:6px 14px;font-size:12px;background:#fff;border:1px solid #ddd;border-radius:8px;cursor:pointer;color:#666">나중에</button>
+    </div>
+  </div>
+
+  <!-- 계정 목록 화면 -->
+  <div id="screen-accounts">
+    <div class="account-list" id="account-list"></div>
+    <div class="divider"><span>또는</span></div>
+    <button class="add-account-btn" onclick="showNewAccount()">＋ 새 계정 만들기</button>
+  </div>
+
+  <!-- 로그인 화면 -->
+  <div id="screen-login" style="display:none">
+    <div class="login-card">
+      <button class="login-back" onclick="showAccounts()">← 계정 목록</button>
+      <div class="login-avatar" id="login-avatar"></div>
+      <div class="login-name" id="login-username"></div>
+      <div class="login-sub">비밀번호를 입력하세요</div>
+      <div class="login-err" id="login-err"></div>
+      <input class="login-input" type="password" id="login-pw" placeholder="비밀번호" autocomplete="current-password">
+      <button class="login-btn" onclick="doLogin()">로그인</button>
+    </div>
+  </div>
+
+  <!-- 신규 계정 화면 -->
+  <div id="screen-new" style="display:none">
+    <div class="new-account-form">
+      <div class="new-form-title">새 계정 만들기</div>
+      <div class="new-form-sub">계정 ID와 비밀번호를 설정하세요. 비밀번호 분실 시 복구 불가합니다.</div>
+      <div class="new-err" id="new-err"></div>
+      <input class="new-input" type="text" id="new-userid" placeholder="계정 ID (영문, 숫자, 4자 이상)" maxlength="32" autocomplete="off">
+      <input class="new-input" type="password" id="new-pw" placeholder="비밀번호 (4자 이상)" autocomplete="new-password">
+      <input class="new-input" type="password" id="new-pw2" placeholder="비밀번호 확인" autocomplete="new-password">
+      <div class="new-btns">
+        <button class="new-btn-g" onclick="showAccounts()">취소</button>
+        <button class="new-btn-p" onclick="createAccount()">계정 만들기</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="hub-footer" id="hub-footer">주식 일기장 <span id="version-footer"></span></div>
 </div>
 
-<!-- 동기화 모달 -->
-<div class="modal-overlay" id="sync-modal" style="display:none">
-  <div class="modal">
-    <div class="modal-title">☁ 클라우드 동기화</div>
-    <div class="modal-sub">동기화 ID로 모든 기기에서 데이터를 공유합니다</div>
-    <div class="modal-note">
-      <strong>🔒 보안 안내</strong><br>
-      데이터는 마스터 비밀번호로 암호화된 상태로 저장됩니다.<br>
-      Cloudflare 서버에도 평문이 전달되지 않습니다.<br>
-      동기화 ID는 기기 식별자로만 사용되며 비밀번호가 아닙니다.
-    </div>
-    <div class="mfg">
-      <label>동기화 ID <span style="color:#aaa;font-weight:400">(기기 간 공유할 고유 이름)</span></label>
-      <input type="text" id="sync-user-id" placeholder="예: my-stock-diary-2024" autocomplete="off" maxlength="64">
-    </div>
-    <div class="modal-err" id="sync-err"></div>
-    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:8px">
-      <button class="mbtn mbtn-p" style="width:100%;padding:10px" onclick="syncUpload()">⬆ 이 기기 → 클라우드 (업로드)</button>
-      <button class="mbtn mbtn-g" style="width:100%;padding:10px" onclick="syncDownload()">⬇ 클라우드 → 이 기기 (다운로드)</button>
-    </div>
-    <div class="sync-status" id="sync-status"></div>
-    <div class="modal-btns" style="margin-top:8px">
-      <button class="mbtn mbtn-r" onclick="syncDelete()" id="sync-del-btn" style="margin-right:auto">클라우드 데이터 삭제</button>
-      <button class="mbtn mbtn-g" onclick="closeSyncModal()">닫기</button>
-    </div>
-  </div>
-</div>
-
-<!-- API 설정 모달 -->
-<div class="modal-overlay" id="api-modal" style="display:none">
-  <div class="modal">
-    <div class="modal-title">KIS API 설정</div>
-    <div class="modal-sub">한국투자증권 Developers에서 발급받은 정보를 입력하세요</div>
-    <div class="modal-note">
-      <strong>🔒 보안 안내</strong><br>
-      AppKey/Secret은 마스터 비밀번호로 AES-256 암호화되어 저장됩니다.<br>
-      서버로 전송되지 않으며 이 기기에만 보관됩니다.
-    </div>
-    <div class="mfg">
-      <label>App Key</label>
-      <input type="text" id="m-appkey" placeholder="발급받은 App Key" autocomplete="off">
-    </div>
-    <div class="mfg">
-      <label>App Secret</label>
-      <input type="password" id="m-appsecret" placeholder="발급받은 App Secret" autocomplete="off">
-    </div>
-    <div class="mfg">
-      <label>계좌 유형</label>
-      <select id="m-ispaper">
-        <option value="false">실전투자</option>
-        <option value="true">모의투자</option>
-      </select>
-    </div>
-    <div class="modal-err" id="m-err"></div>
-    <div class="modal-btns">
-      <button class="mbtn mbtn-r" onclick="clearApiSettings()" id="m-clear-btn" style="display:none;margin-right:auto">설정 삭제</button>
-      <button class="mbtn mbtn-g" onclick="closeApiModal()">취소</button>
-      <button class="mbtn mbtn-p" onclick="saveApiSettings()">저장</button>
-    </div>
-  </div>
-</div>
-
-<!-- 거래 수정 모달 -->
-<div class="modal-overlay" id="edit-modal" style="display:none">
-  <div class="modal">
-    <div class="modal-title">거래 수정</div>
-    <div class="modal-sub">내용을 수정한 후 저장하세요</div>
-    <input type="hidden" id="edit-id">
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-      <div class="mfg" style="grid-column:1/-1"><label>종목명</label><input type="text" id="edit-name"></div>
-      <div class="mfg"><label>종목코드</label><input type="text" id="edit-code"></div>
-      <div class="mfg"><label>날짜</label><input type="date" id="edit-date"></div>
-      <div class="mfg"><label>카테고리</label>
-        <select id="edit-cat"><option>국내주식</option><option>미국주식</option><option>ETF</option><option>코인</option><option>기타</option></select>
-      </div>
-      <div class="mfg"><label>거래 유형</label>
-        <select id="edit-type"><option value="매입">매입</option><option value="매도">매도</option></select>
-      </div>
-      <div class="mfg"><label>수량</label><input type="number" id="edit-qty" min="0" step="any"></div>
-      <div class="mfg"><label>단가 (원)</label><input type="number" id="edit-price" min="0" step="any"></div>
-      <div class="mfg"><label>수수료 (원)</label><input type="number" id="edit-fee" min="0" step="any"></div>
-      <div class="mfg" style="grid-column:1/-1"><label>메모</label><textarea id="edit-memo" style="min-height:54px"></textarea></div>
-    </div>
-    <div class="modal-err" id="edit-err"></div>
-    <div class="modal-btns">
-      <button class="mbtn mbtn-g" onclick="closeEditModal()">취소</button>
-      <button class="mbtn mbtn-p" onclick="saveEdit()">저장</button>
-    </div>
-  </div>
-</div>
-
-<div class="app" id="main-app" style="display:none">
-  <div class="topbar">
-    <span class="topbar-title">📈 주식 일기장</span>
-    <div class="topbar-right">
-      <button class="api-btn" id="sync-btn" onclick="openSyncModal()">☁ 동기화</button>
-      <button class="api-btn" id="api-status-btn" onclick="openApiModal()">KIS API</button>
-      <div class="ttabs">
-        <button class="ttab active" onclick="showView('cal')">캘린더</button>
-        <button class="ttab" onclick="showView('list')">내역</button>
-        <button class="ttab" onclick="showView('stats')">통계</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- 캘린더 뷰 -->
-  <div id="v-cal">
-    <div class="cal-header">
-      <div class="cal-nav">
-        <button class="nav-btn" onclick="moveM(-1)">&#8249;</button>
-        <span class="cal-month" id="cal-lbl"></span>
-        <button class="nav-btn" onclick="moveM(1)">&#8250;</button>
-      </div>
-      <div class="legend">
-        <span><span class="dot" style="background:#1D9E75"></span>매입</span>
-        <span><span class="dot" style="background:#e24b4a"></span>매도</span>
-      </div>
-    </div>
-    <div class="cal-wrap">
-      <div class="day-labels">
-        <span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span>
-      </div>
-      <div class="cells" id="cells"></div>
-    </div>
-    <div id="panel" style="display:none">
-      <div class="panel">
-        <div class="ph">
-          <span class="pt" id="panel-title"></span>
-          <button class="pc" onclick="closePanel()">&#215;</button>
-        </div>
-        <div id="day-list"></div>
-        <div class="form-sep">
-          <div class="form-sep-title">새 거래 등록</div>
-          <div class="fg2">
-            <div class="fg full">
-              <label>종목명</label>
-              <div class="ac-wrap">
-                <input id="fn" type="text" placeholder="종목명 또는 코드 검색..." autocomplete="off" oninput="onStockInput()" onkeydown="onStockKeydown(event)">
-                <div class="ac-list" id="ac-list" style="display:none"></div>
-              </div>
-            </div>
-            <div class="fg">
-              <label>종목코드</label>
-              <div class="input-with-btn">
-                <input id="fcode" type="text" placeholder="자동입력" maxlength="10" readonly style="background:#f9f9f9;color:#888">
-                <button class="fetch-price-btn" onclick="fetchPriceForForm()">시세↓</button>
-              </div>
-            </div>
-            <div class="fg">
-              <label>카테고리</label>
-              <select id="fc">
-                <option>국내주식</option><option>미국주식</option><option>ETF</option><option>코인</option><option>기타</option>
-              </select>
-            </div>
-            <div class="fg">
-              <label>거래 유형</label>
-              <select id="ft"><option value="매입">매입</option><option value="매도">매도</option></select>
-            </div>
-            <div class="fg">
-              <label>수량 (주)</label>
-              <div class="input-with-btn">
-                <input id="fq" type="number" min="0" step="any" placeholder="0">
-                <button class="fetch-price-btn" onclick="openCalc('qty')">🧮</button>
-              </div>
-            </div>
-            <div class="fg">
-              <label>단가 (원)</label>
-              <div class="input-with-btn">
-                <input id="fp" type="number" min="0" step="any" placeholder="0">
-                <button class="fetch-price-btn" onclick="openCalc('price')">🧮</button>
-              </div>
-            </div>
-            <div class="fg"><label>수수료 (원, 선택)</label><input id="ff" type="number" min="0" step="any" placeholder="0"></div>
-            <div class="fg full"><label>메모</label><textarea id="fm" placeholder="매매 이유, 목표가, 시장 상황 등..."></textarea></div>
-          </div>
-          <div class="brow">
-            <button class="btn btn-g" onclick="closePanel()">취소</button>
-            <button class="btn btn-p" onclick="addTrade()">등록하기</button>
-          </div>
-          <div class="fmsg" id="fmsg"></div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- 내역 뷰 -->
-  <div id="v-list" style="display:none">
-    <div class="list-wrap">
-      <div class="lfilters">
-        <input type="text" id="lsearch" placeholder="종목명 검색..." style="font-size:12px;padding:5px 8px;width:130px" oninput="renderList()">
-        <select id="lfc" onchange="renderList()">
-          <option value="">전체 카테고리</option>
-          <option>국내주식</option><option>미국주식</option><option>ETF</option><option>코인</option><option>기타</option>
-        </select>
-        <select id="lft" onchange="renderList()">
-          <option value="">전체 유형</option><option value="매입">매입</option><option value="매도">매도</option>
-        </select>
-        <select id="lsort" onchange="renderList()" style="font-size:12px;padding:5px 8px;width:auto">
-          <option value="date-desc">날짜 최신순</option>
-          <option value="date-asc">날짜 오래된순</option>
-          <option value="amount-desc">금액 큰순</option>
-          <option value="amount-asc">금액 작은순</option>
-          <option value="name-asc">종목명순</option>
-        </select>
-        <button class="btn btn-g" style="font-size:12px;padding:5px 12px;margin-left:auto" onclick="exportCSV()">⬇ CSV</button>
-      </div>
-      <table>
-        <thead><tr>
-          <th>날짜</th><th>종목</th><th>코드</th><th>카테고리</th><th>유형</th>
-          <th>수량</th><th>단가</th><th>총액</th><th>메모</th><th></th><th></th>
-        </tr></thead>
-        <tbody id="ltbody"></tbody>
-      </table>
-    </div>
-  </div>
-
-  <!-- 통계 뷰 -->
-  <div id="v-stats" style="display:none">
-    <div class="smetrics">
-      <div class="metric"><div class="ml">총 매입금액</div><div class="mv" id="sb">0원</div></div>
-      <div class="metric"><div class="ml">총 매도금액</div><div class="mv" id="ss">0원</div></div>
-      <div class="metric"><div class="ml">실현 손익</div><div class="mv" id="sp">0원</div></div>
-    </div>
-
-    <!-- 현재가 / 평가손익 -->
-    <div class="price-section">
-      <div class="price-header">
-        <span class="price-title">📊 보유종목 현재가</span>
-        <button class="refresh-btn" id="refresh-btn" onclick="fetchAllPrices()">
-          <span id="refresh-icon">↻</span> 시세 갱신
-        </button>
-      </div>
-      <div id="price-cards-wrap"></div>
-      <div class="price-updated" id="price-updated"></div>
-    </div>
-
-    <div class="catsec">
-      <div class="sec-title" style="margin-top:0">📅 월별 매매 현황</div>
-      <div id="monthly-chart" style="margin-bottom:1.5rem"></div>
-      <div class="sec-title">카테고리별 현황</div>
-      <div id="cat-cards"></div>
-      <div class="sec-title">종목별 손익</div>
-      <table>
-        <thead><tr><th>종목</th><th>코드</th><th>카테고리</th><th>매입</th><th>매도</th><th>손익</th><th>수익률</th></tr></thead>
-        <tbody id="stbody"></tbody>
-      </table>
-    </div>
-  </div>
-<!-- 계산기 모달 -->
-<div class="calc-overlay" id="calc-overlay" style="display:none" onclick="if(event.target===this)closeCalc()">
-  <div class="calc-modal">
-    <div class="calc-title" id="calc-title">수량 계산기</div>
-    <div class="calc-sub" id="calc-sub">계산 후 확인을 누르면 입력됩니다</div>
-    <div class="calc-display">
-      <div class="calc-expr" id="calc-expr"></div>
-      <div class="calc-val" id="calc-val">0</div>
-    </div>
-    <div class="calc-grid">
-      <button class="ck op" onclick="calcInput('C')">C</button>
-      <button class="ck op" onclick="calcInput('±')">±</button>
-      <button class="ck op" onclick="calcInput('%')">%</button>
-      <button class="ck op" onclick="calcInput('/')">÷</button>
-      <button class="ck" onclick="calcInput('7')">7</button>
-      <button class="ck" onclick="calcInput('8')">8</button>
-      <button class="ck" onclick="calcInput('9')">9</button>
-      <button class="ck op" onclick="calcInput('*')">×</button>
-      <button class="ck" onclick="calcInput('4')">4</button>
-      <button class="ck" onclick="calcInput('5')">5</button>
-      <button class="ck" onclick="calcInput('6')">6</button>
-      <button class="ck op" onclick="calcInput('-')">−</button>
-      <button class="ck" onclick="calcInput('1')">1</button>
-      <button class="ck" onclick="calcInput('2')">2</button>
-      <button class="ck" onclick="calcInput('3')">3</button>
-      <button class="ck op" onclick="calcInput('+')">+</button>
-      <button class="ck zero" onclick="calcInput('0')">0</button>
-      <button class="ck" onclick="calcInput('.')">.</button>
-      <button class="ck eq" onclick="calcInput('=')">=</button>
-    </div>
-    <button class="calc-confirm" onclick="confirmCalc()">확인 — 입력하기</button>
-    <button class="calc-cancel" onclick="closeCalc()">취소</button>
-  </div>
-</div>
-
-
+<script src="js/auth.js"></script>
 <script>
-// ═══════════════════════════════════════════════════════════
-// 보안 상수
-// ═══════════════════════════════════════════════════════════
-const PROXY_BASE = 'https://kis-proxy.i-jmkfx.workers.dev';
-const K = {
-  TRADES:  'sdv3_trades',
-  CREDS:   'sdv3_creds',
-  TOKEN:   'sdv3_token',
-  HASH:    'sdv3_hash',
-};
+let loginTarget = null; // 로그인 시도 중인 userId
 
-// ═══════════════════════════════════════════════════════════
-// AES-256-GCM 암호화 유틸
-// ═══════════════════════════════════════════════════════════
-const Crypto = {
-  async deriveKey(pw) {
-    const enc = new TextEncoder();
-    const km = await crypto.subtle.importKey('raw', enc.encode(pw), {name:'PBKDF2'}, false, ['deriveKey']);
-    return crypto.subtle.deriveKey(
-      {name:'PBKDF2', salt: enc.encode('stock_diary_salt_v3'), iterations:150000, hash:'SHA-256'},
-      km, {name:'AES-GCM', length:256}, false, ['encrypt','decrypt']
-    );
-  },
-  async encrypt(text, pw) {
-    const key = await this.deriveKey(pw);
-    const iv = crypto.getRandomValues(new Uint8Array(12));
-    const ct = await crypto.subtle.encrypt({name:'AES-GCM', iv}, key, new TextEncoder().encode(text));
-    const buf = new Uint8Array(12 + ct.byteLength);
-    buf.set(iv); buf.set(new Uint8Array(ct), 12);
-    return btoa(String.fromCharCode(...buf));
-  },
-  async decrypt(b64, pw) {
-    const key = await this.deriveKey(pw);
-    const buf = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
-    const dec = await crypto.subtle.decrypt({name:'AES-GCM', iv:buf.slice(0,12)}, key, buf.slice(12));
-    return new TextDecoder().decode(dec);
-  },
-  async hash(text) {
-    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
-    return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+// ── 화면 전환 ─────────────────────────────────────────────
+function showAccounts() {
+  document.getElementById('screen-accounts').style.display = '';
+  document.getElementById('screen-login').style.display = 'none';
+  document.getElementById('screen-new').style.display = 'none';
+  renderAccountList();
+}
+
+function showLogin(userId) {
+  loginTarget = userId;
+  document.getElementById('login-avatar').textContent = userId.slice(0,2).toUpperCase();
+  document.getElementById('login-username').textContent = userId;
+  document.getElementById('login-err').textContent = '';
+  document.getElementById('login-pw').value = '';
+  document.getElementById('screen-accounts').style.display = 'none';
+  document.getElementById('screen-login').style.display = '';
+  document.getElementById('screen-new').style.display = 'none';
+  setTimeout(() => document.getElementById('login-pw').focus(), 100);
+}
+
+function showNewAccount() {
+  document.getElementById('new-userid').value = '';
+  document.getElementById('new-pw').value = '';
+  document.getElementById('new-pw2').value = '';
+  document.getElementById('new-err').textContent = '';
+  document.getElementById('screen-accounts').style.display = 'none';
+  document.getElementById('screen-login').style.display = 'none';
+  document.getElementById('screen-new').style.display = '';
+  setTimeout(() => document.getElementById('new-userid').focus(), 100);
+}
+
+// ── 계정 목록 렌더 ────────────────────────────────────────
+function renderAccountList() {
+  const list = AccountManager.list();
+  const el = document.getElementById('account-list');
+  if (!list.length) {
+    el.innerHTML = `<div style="text-align:center;padding:2rem;color:#aaa;font-size:13px">
+      아직 계정이 없습니다.<br>새 계정을 만들어 시작하세요.
+    </div>`;
+    return;
   }
-};
-
-// ═══════════════════════════════════════════════════════════
-// 앱 상태
-// ═══════════════════════════════════════════════════════════
-let masterPw = null;
-let trades = [];
-let priceCache = {};   // { code: { price, change, changeRate, name, updatedAt } }
-let kisToken = null;
-let kisTokenExpiry = 0;
-let apiCreds = null;   // { appKey, appSecret, isPaper }
-
-let cy = new Date().getFullYear(), cm = new Date().getMonth(), sel = null;
-const todayStr = new Date().toISOString().slice(0,10);
-
-// ═══════════════════════════════════════════════════════════
-// 주요 국내 종목 DB (종목명 → 코드 자동완성용)
-// ═══════════════════════════════════════════════════════════
-const STOCK_DB = [
-  {n:'삼성전자',c:'005930',t:'국내주식'},{n:'SK하이닉스',c:'000660',t:'국내주식'},
-  {n:'LG에너지솔루션',c:'373220',t:'국내주식'},{n:'삼성바이오로직스',c:'207940',t:'국내주식'},
-  {n:'현대차',c:'005380',t:'국내주식'},{n:'기아',c:'000270',t:'국내주식'},
-  {n:'셀트리온',c:'068270',t:'국내주식'},{n:'POSCO홀딩스',c:'005490',t:'국내주식'},
-  {n:'KB금융',c:'105560',t:'국내주식'},{n:'신한지주',c:'055550',t:'국내주식'},
-  {n:'하나금융지주',c:'086790',t:'국내주식'},{n:'우리금융지주',c:'316140',t:'국내주식'},
-  {n:'카카오',c:'035720',t:'국내주식'},{n:'NAVER',c:'035420',t:'국내주식'},
-  {n:'LG화학',c:'051910',t:'국내주식'},{n:'삼성SDI',c:'006400',t:'국내주식'},
-  {n:'현대모비스',c:'012330',t:'국내주식'},{n:'삼성물산',c:'028260',t:'국내주식'},
-  {n:'LG전자',c:'066570',t:'국내주식'},{n:'SK텔레콤',c:'017670',t:'국내주식'},
-  {n:'KT',c:'030200',t:'국내주식'},{n:'LG유플러스',c:'032640',t:'국내주식'},
-  {n:'삼성전기',c:'009150',t:'국내주식'},{n:'삼성에스디에스',c:'018260',t:'국내주식'},
-  {n:'SK이노베이션',c:'096770',t:'국내주식'},{n:'에코프로비엠',c:'247540',t:'국내주식'},
-  {n:'에코프로',c:'086520',t:'국내주식'},{n:'포스코퓨처엠',c:'003670',t:'국내주식'},
-  {n:'두산에너빌리티',c:'034020',t:'국내주식'},{n:'한국전력',c:'015760',t:'국내주식'},
-  {n:'롯데케미칼',c:'011170',t:'국내주식'},{n:'GS건설',c:'006360',t:'국내주식'},
-  {n:'현대건설',c:'000720',t:'국내주식'},{n:'삼성생명',c:'032830',t:'국내주식'},
-  {n:'삼성화재',c:'000810',t:'국내주식'},{n:'미래에셋증권',c:'006800',t:'국내주식'},
-  {n:'카카오뱅크',c:'323410',t:'국내주식'},{n:'카카오페이',c:'377300',t:'국내주식'},
-  {n:'크래프톤',c:'259960',t:'국내주식'},{n:'넷마블',c:'251270',t:'국내주식'},
-  {n:'엔씨소프트',c:'036570',t:'국내주식'},{n:'펄어비스',c:'263750',t:'국내주식'},
-  {n:'HLB',c:'028300',t:'국내주식'},{n:'알테오젠',c:'196170',t:'국내주식'},
-  {n:'리가켐바이오',c:'141080',t:'국내주식'},{n:'한미약품',c:'128940',t:'국내주식'},
-  {n:'유한양행',c:'000100',t:'국내주식'},{n:'종근당',c:'185750',t:'국내주식'},
-  {n:'고려아연',c:'010130',t:'국내주식'},{n:'한화에어로스페이스',c:'012450',t:'국내주식'},
-  {n:'현대로템',c:'064350',t:'국내주식'},{n:'LIG넥스원',c:'079550',t:'국내주식'},
-  {n:'한화시스템',c:'272210',t:'국내주식'},{n:'코스모신소재',c:'005070',t:'국내주식'},
-  {n:'KODEX 200',c:'069500',t:'ETF'},{n:'KODEX 코스닥150',c:'229200',t:'ETF'},
-  {n:'KODEX 반도체',c:'091160',t:'ETF'},{n:'KODEX 2차전지산업',c:'305720',t:'ETF'},
-  {n:'TIGER 미국S&P500',c:'360750',t:'ETF'},{n:'TIGER 미국나스닥100',c:'133690',t:'ETF'},
-  {n:'KODEX 미국S&P500TR',c:'379800',t:'ETF'},{n:'TIGER 차이나전기차SOLACTIVE',c:'371460',t:'ETF'},
-  {n:'KODEX 골드선물(H)',c:'132030',t:'ETF'},{n:'TIGER 국채3년',c:'114820',t:'ETF'},
-];
-
-// ═══════════════════════════════════════════════════════════
-// 종목명 자동완성
-// ═══════════════════════════════════════════════════════════
-let acIdx = -1;
-let acResults = [];
-
-function onStockInput() {
-  const q = document.getElementById('fn').value.trim();
-  const list = document.getElementById('ac-list');
-  acIdx = -1;
-  if (q.length < 1) { list.style.display = 'none'; acResults = []; return; }
-  // 이름 또는 코드 검색
-  acResults = STOCK_DB.filter(s =>
-    s.n.includes(q) || s.c.startsWith(q)
-  ).slice(0, 8);
-  // 과거 입력 종목도 포함 (중복 제거 수정: Set은 객체에 작동 안 함)
-  const prevMap = {};
-  trades.filter(t => t.name.includes(q) || (t.code && t.code.startsWith(q)))
-    .forEach(t => { prevMap[t.name] = {n:t.name, c:t.code||'', t:t.cat}; });
-  Object.values(prevMap).forEach(p => {
-    if (!acResults.find(r => r.n === p.n)) acResults.unshift(p);
-  });
-  acResults = acResults.slice(0, 8);
-  if (!acResults.length) { list.style.display = 'none'; return; }
-  list.innerHTML = acResults.map((s, i) => `
-    <div class="ac-item" data-i="${i}" onclick="selectStock(${i})">
-      <span class="ac-item-name">${s.n}</span>
-      <span style="display:flex;gap:6px;align-items:center">
-        ${s.c ? `<span class="ac-item-code">${s.c}</span>` : ''}
-        <span class="ac-item-cat">${s.t||''}</span>
-      </span>
-    </div>`).join('');
-  list.style.display = '';
+  el.innerHTML = list.map(uid => {
+    const hasData = !!localStorage.getItem(KEY.tradesKey(uid));
+    return `<div class="account-card" onclick="showLogin('${uid}')">
+      <div class="account-avatar">${uid.slice(0,2).toUpperCase()}</div>
+      <div class="account-info">
+        <div class="account-name">${uid}</div>
+        <div class="account-meta">${hasData ? '거래 데이터 있음' : '데이터 없음'}</div>
+      </div>
+      <button class="account-del" onclick="deleteAccount(event,'${uid}')">삭제</button>
+      <span class="account-arrow">›</span>
+    </div>`;
+  }).join('');
 }
 
-function onStockKeydown(e) {
-  const list = document.getElementById('ac-list');
-  if (list.style.display === 'none') return;
-  const items = list.querySelectorAll('.ac-item');
-  if (e.key === 'ArrowDown') {
-    e.preventDefault();
-    acIdx = Math.min(acIdx + 1, items.length - 1);
-    items.forEach((el, i) => el.classList.toggle('active', i === acIdx));
-  } else if (e.key === 'ArrowUp') {
-    e.preventDefault();
-    acIdx = Math.max(acIdx - 1, 0);
-    items.forEach((el, i) => el.classList.toggle('active', i === acIdx));
-  } else if (e.key === 'Enter' && acIdx >= 0) {
-    e.preventDefault();
-    selectStock(acIdx);
-  } else if (e.key === 'Escape') {
-    list.style.display = 'none';
+function deleteAccount(e, uid) {
+  e.stopPropagation();
+  if (!confirm(`'${uid}' 계정과 모든 데이터를 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.`)) return;
+  AccountManager.remove(uid);
+  log(`계정 삭제: ${uid}`, 'warn');
+  renderAccountList();
+}
+
+// ── 로그인 ────────────────────────────────────────────────
+async function doLogin() {
+  const pw  = document.getElementById('login-pw').value;
+  const err = document.getElementById('login-err');
+  err.textContent = '';
+  if (!pw || pw.length < 4) { err.textContent = '비밀번호는 4자 이상이어야 합니다.'; return; }
+  log(`[${loginTarget}] 로그인 시도...`, 'info');
+  const stored = localStorage.getItem(KEY.hashKey(loginTarget));
+  const input  = await Crypto.hash(pw + 'stock_diary_v4_' + loginTarget);
+  if (stored !== input) {
+    err.textContent = '비밀번호가 올바르지 않습니다.';
+    log(`[${loginTarget}] 비밀번호 틀림`, 'err');
+    return;
   }
+  Session.set(loginTarget, pw);
+  log(`[${loginTarget}] 로그인 성공`, 'ok');
+  // redirect 파라미터가 있으면 해당 페이지로, 없으면 캘린더로
+  const params = new URLSearchParams(location.search);
+  const redirect = params.get('redirect');
+  location.href = redirect ? decodeURIComponent(redirect) : 'pages/calendar.html';
 }
 
-function selectStock(i) {
-  const s = acResults[i];
-  if (!s) return;
-  document.getElementById('fn').value = s.n;
-  document.getElementById('fcode').value = s.c || '';
-  if (s.t) document.getElementById('fc').value = s.t;
-  document.getElementById('ac-list').style.display = 'none';
-  acResults = [];
+// ── 신규 계정 ─────────────────────────────────────────────
+async function createAccount() {
+  const uid  = document.getElementById('new-userid').value.trim();
+  const pw   = document.getElementById('new-pw').value;
+  const pw2  = document.getElementById('new-pw2').value;
+  const err  = document.getElementById('new-err');
+  err.textContent = '';
+  if (!uid || uid.length < 4)         { err.textContent = '계정 ID는 4자 이상이어야 합니다.'; return; }
+  if (!/^[a-zA-Z0-9_-]+$/.test(uid)) { err.textContent = '계정 ID는 영문, 숫자, _ - 만 사용 가능합니다.'; return; }
+  if (AccountManager.exists(uid))     { err.textContent = '이미 존재하는 계정 ID입니다.'; return; }
+  if (!pw || pw.length < 4)           { err.textContent = '비밀번호는 4자 이상이어야 합니다.'; return; }
+  if (pw !== pw2)                      { err.textContent = '비밀번호가 일치하지 않습니다.'; return; }
+  log(`계정 생성 중: ${uid}`, 'info');
+  const h = await Crypto.hash(pw + 'stock_diary_v4_' + uid);
+  localStorage.setItem(KEY.hashKey(uid), h);
+  AccountManager.add(uid);
+  Session.set(uid, pw);
+  log(`계정 생성 완료: ${uid}`, 'ok');
+  location.href = 'pages/calendar.html';
 }
 
-// 외부 클릭 시 목록 닫기
-document.addEventListener('click', e => {
-  if (!e.target.closest('.ac-wrap')) {
-    document.getElementById('ac-list').style.display = 'none';
+// ── 키보드 ────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter') {
+    if (document.getElementById('screen-login').style.display !== 'none') doLogin();
+    if (document.getElementById('screen-new').style.display !== 'none') {
+      const uid = document.getElementById('new-userid');
+      const pw  = document.getElementById('new-pw');
+      const pw2 = document.getElementById('new-pw2');
+      if (document.activeElement === uid) pw.focus();
+      else if (document.activeElement === pw) pw2.focus();
+      else createAccount();
+    }
   }
 });
 
-// ═══════════════════════════════════════════════════════════
-// 계산기
-// ═══════════════════════════════════════════════════════════
-let calcTarget = null; // 'qty' | 'price'
-let calcCurrent = '0';
-let calcExpr = '';
-let calcOperand = null;
-let calcOperator = null;
-let calcNewNum = false;
+// ── 구버전 데이터 감지 & 초기화 ─────────────────────────
+const LEGACY_KEYS = ['sdv3_trades', 'sdv3_creds', 'sdv3_hash', 'sdv3_token'];
 
-function openCalc(target) {
-  calcTarget = target;
-  calcCurrent = '0'; calcExpr = ''; calcOperand = null; calcOperator = null; calcNewNum = false;
-  // 기존 값이 있으면 초기값으로
-  const existing = document.getElementById(target === 'qty' ? 'fq' : 'fp').value;
-  if (existing && Number(existing) > 0) { calcCurrent = existing; }
-  document.getElementById('calc-title').textContent = target === 'qty' ? '수량 계산기' : '단가 계산기';
-  document.getElementById('calc-sub').textContent = target === 'qty' ? '매수할 수량을 계산하세요' : '거래 단가를 계산하세요';
-  updateCalcDisplay();
-  document.getElementById('calc-overlay').style.display = 'flex';
-}
-
-function closeCalc() {
-  document.getElementById('calc-overlay').style.display = 'none';
-}
-
-function confirmCalc() {
-  const val = parseFloat(calcCurrent);
-  if (!isNaN(val) && val >= 0) {
-    const id = calcTarget === 'qty' ? 'fq' : 'fp';
-    document.getElementById(id).value = calcTarget === 'qty' ? Math.floor(val) : val;
-  }
-  closeCalc();
-}
-
-function calcInput(key) {
-  if (key === 'C') {
-    calcCurrent = '0'; calcExpr = ''; calcOperand = null; calcOperator = null; calcNewNum = false;
-  } else if (key === '±') {
-    calcCurrent = String(parseFloat(calcCurrent) * -1);
-  } else if (key === '%') {
-    calcCurrent = String(parseFloat(calcCurrent) / 100);
-  } else if (['+','-','*','/'].includes(key)) {
-    calcOperand = parseFloat(calcCurrent);
-    calcOperator = key;
-    calcExpr = `${calcCurrent} ${key === '*' ? '×' : key === '/' ? '÷' : key}`;
-    calcNewNum = true;
-  } else if (key === '=') {
-    if (calcOperand !== null && calcOperator) {
-      const b = parseFloat(calcCurrent);
-      let result;
-      if (calcOperator === '+') result = calcOperand + b;
-      else if (calcOperator === '-') result = calcOperand - b;
-      else if (calcOperator === '*') result = calcOperand * b;
-      else if (calcOperator === '/') result = b !== 0 ? calcOperand / b : 0;
-      calcExpr = `${calcOperand} ${calcOperator === '*' ? '×' : calcOperator === '/' ? '÷' : calcOperator} ${b} =`;
-      calcCurrent = String(parseFloat(result.toFixed(6)));
-      calcOperand = null; calcOperator = null; calcNewNum = false;
-    }
-  } else if (key === '.') {
-    if (calcNewNum) { calcCurrent = '0.'; calcNewNum = false; return; }
-    if (!calcCurrent.includes('.')) calcCurrent += '.';
-  } else {
-    // 숫자
-    if (calcNewNum || calcCurrent === '0') { calcCurrent = key; calcNewNum = false; }
-    else if (calcCurrent.length < 12) calcCurrent += key;
-  }
-  updateCalcDisplay();
-}
-
-function updateCalcDisplay() {
-  document.getElementById('calc-expr').textContent = calcExpr;
-  const n = parseFloat(calcCurrent);
-  document.getElementById('calc-val').textContent = isNaN(n)
-    ? calcCurrent
-    : (calcCurrent.endsWith('.') ? calcCurrent : n.toLocaleString('ko-KR'));
-}
-
-// ═══════════════════════════════════════════════════════════
-// 잠금 화면
-// ═══════════════════════════════════════════════════════════
-
-function initLock() {
-  const hasData = !!localStorage.getItem(K.HASH);
-  const lockTitle  = document.getElementById('lock-title');
-  const lockSub    = document.getElementById('lock-sub');
-  const lockNewBtn = document.getElementById('lock-new-btn');
-  const lockPw2    = document.getElementById('lock-pw2');
-  const lockBtn    = document.getElementById('lock-submit-btn');
-  if (!hasData) {
-    // 최초 설정: 확인란 보이기, 초기화 버튼 숨기기
-    lockTitle.textContent   = '주식 일기장 설정';
-    lockSub.textContent     = '사용할 비밀번호를 설정하세요 (분실 시 복구 불가)';
-    lockPw2.style.display   = '';
-    lockBtn.textContent     = '비밀번호 설정';
-    lockNewBtn.style.display = 'none';
-  }
-  // 기존 데이터 있을 때는 초기화 버튼 항상 표시 (display 기본값 유지)
-  document.getElementById('lock-submit-btn').addEventListener('click', unlock);
-  document.getElementById('lock-new-btn').addEventListener('click', showNewSetup);
-  document.getElementById('lock-pw').addEventListener('keydown', e => {
-    if (e.key === 'Enter') {
-      if (!localStorage.getItem(K.HASH)) document.getElementById('lock-pw2').focus();
-      else unlock();
-    }
-  });
-  lockPw2.addEventListener('keydown', e => {
-    if (e.key === 'Enter') unlock();
-  });
-}
-
-async function unlock() {
-  const pw  = document.getElementById('lock-pw').value;
-  const pw2 = document.getElementById('lock-pw2').value;
-  const err = document.getElementById('lock-err');
-  err.textContent = '';
-  log('잠금 해제 시도 중...', 'info');
-  if (!pw || pw.length < 4) {
-    err.textContent = '비밀번호는 4자 이상이어야 합니다.';
-    log('비밀번호 4자 미만', 'err'); return;
-  }
-  const hasData = !!localStorage.getItem(K.HASH);
-  if (!hasData) {
-    if (!pw2) { err.textContent = '비밀번호 확인을 입력해주세요.'; log('비밀번호 확인 미입력', 'err'); document.getElementById('lock-pw2').focus(); return; }
-    if (pw !== pw2) { err.textContent = '비밀번호가 일치하지 않습니다.'; log('비밀번호 불일치', 'err'); document.getElementById('lock-pw2').value = ''; document.getElementById('lock-pw2').focus(); return; }
-    log('비밀번호 해시 생성 중...', 'info');
-    const h = await Crypto.hash(pw + 'stock_diary_v3');
-    localStorage.setItem(K.HASH, h);
-    masterPw = pw;
-    log('비밀번호 설정 완료', 'ok');
-    await bootApp();
-  } else {
-    log('비밀번호 검증 중...', 'info');
-    const stored = localStorage.getItem(K.HASH);
-    const input  = await Crypto.hash(pw + 'stock_diary_v3');
-    if (stored !== input) {
-      err.textContent = '비밀번호가 올바르지 않습니다.';
-      log('비밀번호 틀림', 'err'); return;
-    }
-    masterPw = pw;
-    log('비밀번호 인증 성공', 'ok');
-    await bootApp();
+function checkLegacyData() {
+  const hasLegacy = LEGACY_KEYS.some(k => localStorage.getItem(k));
+  const dismissed = sessionStorage.getItem('legacy_dismissed');
+  if (hasLegacy && !dismissed) {
+    document.getElementById('legacy-banner').style.display = '';
+    log('구버전 데이터(sdv3) 감지됨', 'warn');
   }
 }
 
-function showNewSetup() {
-  if (!confirm('모든 데이터가 삭제됩니다. 정말 초기화하시겠습니까?')) return;
-  Object.values(K).forEach(k => localStorage.removeItem(k));
-  location.reload();
+function clearLegacyData() {
+  if (!confirm('구버전 데이터를 삭제하시겠습니까?\n(새 버전 계정 데이터는 유지됩니다)')) return;
+  LEGACY_KEYS.forEach(k => localStorage.removeItem(k));
+  document.getElementById('legacy-banner').style.display = 'none';
+  log('구버전 데이터 초기화 완료', 'ok');
 }
 
-async function bootApp() {
-  log('앱 데이터 로딩 중...', 'info');
-  const enc = localStorage.getItem(K.TRADES);
-  if (enc) {
-    try {
-      trades = JSON.parse(await Crypto.decrypt(enc, masterPw));
-      log(`거래 데이터 복호화 완료 (${trades.length}건)`, 'ok');
-    } catch(e) { trades = []; log('거래 데이터 복호화 실패 — 초기화됨', 'err'); }
-  } else {
-    log('저장된 거래 데이터 없음 (새 앱)', 'info');
-  }
-  const encCreds = localStorage.getItem(K.CREDS);
-  if (encCreds) {
-    try {
-      apiCreds = JSON.parse(await Crypto.decrypt(encCreds, masterPw));
-      log('KIS API 설정 복호화 완료', 'ok');
-    } catch(e) { apiCreds = null; log('KIS API 설정 복호화 실패', 'err'); }
-  } else {
-    log('KIS API 설정 없음', 'warn');
-  }
-  document.getElementById('lock-screen').style.display = 'none';
-  document.getElementById('main-app').style.display = '';
-  updateApiStatusBtn();
-  if (localStorage.getItem(SYNC_ID_KEY)) updateSyncBtn(true);
-  log('앱 로드 완료', 'ok');
-  renderCal();
+function dismissLegacyBanner() {
+  sessionStorage.setItem('legacy_dismissed', '1');
+  document.getElementById('legacy-banner').style.display = 'none';
 }
 
-// ═══════════════════════════════════════════════════════════
-// 데이터 저장 (항상 암호화)
-// ═══════════════════════════════════════════════════════════
-async function save() {
-  try {
-    const enc = await Crypto.encrypt(JSON.stringify(trades), masterPw);
-    localStorage.setItem(K.TRADES, enc);
-    log(`거래 저장 완료 (총 ${trades.length}건)`, 'ok');
-  } catch(e) { log('거래 저장 실패: ' + e.message, 'err'); }
+// ── 초기화 ────────────────────────────────────────────────
+Logger.init();
+document.getElementById('version-footer').textContent = APP_VERSION;
+// 이미 로그인된 세션이 있으면 바로 이동
+const existing = Session.get();
+if (existing) {
+  log(`기존 세션 발견: ${existing.userId}`, 'info');
+  location.href = 'pages/calendar.html';
+} else {
+  showAccounts();
+  checkLegacyData();
 }
-
-async function saveApiCreds(creds) {
-  const enc = await Crypto.encrypt(JSON.stringify(creds), masterPw);
-  localStorage.setItem(K.CREDS, enc);
-  apiCreds = creds;
-}
-
-// ═══════════════════════════════════════════════════════════
-// 클라우드 동기화 (Cloudflare KV)
-// ═══════════════════════════════════════════════════════════
-const SYNC_ID_KEY = 'sdv3_sync_id';
-
-function openSyncModal() {
-  const saved = localStorage.getItem(SYNC_ID_KEY) || '';
-  document.getElementById('sync-user-id').value = saved;
-  document.getElementById('sync-err').textContent = '';
-  document.getElementById('sync-status').textContent = '';
-  document.getElementById('sync-status').className = 'sync-status';
-  document.getElementById('sync-modal').style.display = 'flex';
-}
-
-function closeSyncModal() {
-  document.getElementById('sync-modal').style.display = 'none';
-}
-
-function getSyncId() {
-  const id = document.getElementById('sync-user-id').value.trim();
-  if (!id || id.length < 4) {
-    document.getElementById('sync-err').textContent = '동기화 ID는 4자 이상 입력해주세요.';
-    return null;
-  }
-  localStorage.setItem(SYNC_ID_KEY, id);
-  return id;
-}
-
-function setSyncStatus(msg, level = 'info') {
-  const el = document.getElementById('sync-status');
-  el.textContent = msg;
-  el.className = 'sync-status ' + level;
-}
-
-async function syncUpload() {
-  const userId = getSyncId();
-  if (!userId) return;
-  setSyncStatus('업로드 중...', 'info');
-  log('클라우드 업로드 시작', 'info');
-  try {
-    // 거래 데이터 + API 설정 모두 암호화해서 하나의 객체로
-    const payload = {
-      trades: localStorage.getItem(K.TRADES) || '',
-      creds:  localStorage.getItem(K.CREDS)  || '',
-      hash:   localStorage.getItem(K.HASH)   || '',
-      uploadedAt: new Date().toISOString(),
-    };
-    const resp = await fetch(`${PROXY_BASE}/kv/save`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId, data: JSON.stringify(payload) }),
-    });
-    const result = await resp.json();
-    if (!resp.ok || !result.ok) throw new Error(result.error || '업로드 실패');
-    setSyncStatus(`✓ 업로드 완료 (${new Date().toLocaleTimeString('ko-KR')})`, 'ok');
-    log('클라우드 업로드 완료', 'ok');
-    updateSyncBtn(true);
-  } catch(e) {
-    setSyncStatus('업로드 실패: ' + e.message, 'err');
-    log('클라우드 업로드 실패: ' + e.message, 'err');
-  }
-}
-
-async function syncDownload() {
-  const userId = getSyncId();
-  if (!userId) return;
-  setSyncStatus('다운로드 중...', 'info');
-  log('클라우드 다운로드 시작', 'info');
-  try {
-    const resp = await fetch(`${PROXY_BASE}/kv/load`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId }),
-    });
-    const result = await resp.json();
-    if (!resp.ok || !result.ok) throw new Error(result.error || '다운로드 실패');
-    if (!result.data) {
-      setSyncStatus('클라우드에 저장된 데이터가 없습니다.', 'err');
-      return;
-    }
-    const payload = JSON.parse(result.data);
-    // 비밀번호 해시가 다른 기기와 다를 수 있으므로 덮어쓰기
-    if (payload.hash)   localStorage.setItem(K.HASH,   payload.hash);
-    if (payload.trades) localStorage.setItem(K.TRADES, payload.trades);
-    if (payload.creds)  localStorage.setItem(K.CREDS,  payload.creds);
-    setSyncStatus(`✓ 다운로드 완료 — 앱을 새로고침합니다...`, 'ok');
-    log('클라우드 다운로드 완료 — 새로고침', 'ok');
-    updateSyncBtn(true);
-    setTimeout(() => location.reload(), 1500);
-  } catch(e) {
-    setSyncStatus('다운로드 실패: ' + e.message, 'err');
-    log('클라우드 다운로드 실패: ' + e.message, 'err');
-  }
-}
-
-async function syncDelete() {
-  const userId = getSyncId();
-  if (!userId) return;
-  if (!confirm('클라우드에 저장된 데이터를 삭제하시겠습니까?\n이 기기의 데이터는 유지됩니다.')) return;
-  setSyncStatus('삭제 중...', 'info');
-  try {
-    const resp = await fetch(`${PROXY_BASE}/kv/delete`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId }),
-    });
-    const result = await resp.json();
-    if (!resp.ok || !result.ok) throw new Error(result.error || '삭제 실패');
-    setSyncStatus('✓ 클라우드 데이터 삭제 완료', 'ok');
-    log('클라우드 데이터 삭제', 'ok');
-    updateSyncBtn(false);
-  } catch(e) {
-    setSyncStatus('삭제 실패: ' + e.message, 'err');
-  }
-}
-
-function updateSyncBtn(synced) {
-  const btn = document.getElementById('sync-btn');
-  if (synced) btn.classList.add('synced');
-  else btn.classList.remove('synced');
-}
-async function ensureToken() {
-  if (!apiCreds) throw new Error('API 설정이 없습니다.');
-  const now = Date.now();
-  // 세션 토큰 캐시 확인
-  const cached = sessionStorage.getItem(K.TOKEN);
-  if (cached) {
-    const {token, expiry} = JSON.parse(cached);
-    if (now < expiry - 60000) { kisToken = token; return; }
-  }
-  const env = apiCreds.isPaper ? 'paper' : 'real';
-  const resp = await fetch(`${PROXY_BASE}/${env}/oauth2/tokenP`, {
-    method: 'POST',
-    headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({
-      grant_type: 'client_credentials',
-      appkey: apiCreds.appKey,
-      appsecret: apiCreds.appSecret,
-    })
-  });
-  if (!resp.ok) throw new Error('토큰 발급 실패: ' + resp.statusText);
-  const data = await resp.json();
-  if (data.error_code) throw new Error(data.error_description || '토큰 오류');
-  kisToken = data.access_token;
-  const expiry = now + (data.expires_in ?? 86400) * 1000;
-  sessionStorage.setItem(K.TOKEN, JSON.stringify({token: kisToken, expiry}));
-}
-
-async function fetchPrice(code) {
-  await ensureToken();
-  const env = apiCreds.isPaper ? 'paper' : 'real';
-  const resp = await fetch(
-    `${PROXY_BASE}/${env}/uapi/domestic-stock/v1/quotations/inquire-price?fid_cond_mrkt_div_code=J&fid_input_iscd=${code}`,
-    {
-      headers: {
-        'Content-Type': 'application/json',
-        appkey: apiCreds.appKey,
-        appsecret: apiCreds.appSecret,
-        Authorization: `Bearer ${kisToken}`,
-        tr_id: 'FHKST01010100',
-        custtype: 'P',
-      }
-    }
-  );
-  if (!resp.ok) throw new Error('현재가 조회 실패');
-  const json = await resp.json();
-  if (json.rt_cd !== '0') throw new Error(json.msg1 || '조회 오류');
-  const o = json.output;
-  return {
-    price: Number(o.stck_prpr),
-    change: Number(o.prdy_vrss),
-    changeRate: Number(o.prdy_ctrt),
-    name: o.hts_kor_isnm,
-    updatedAt: new Date().toLocaleTimeString('ko-KR'),
-  };
-}
-
-// 등록 폼에서 현재가 가져오기
-async function fetchPriceForForm() {
-  if (!apiCreds) { alert('KIS API 설정이 필요합니다. 상단 KIS API 버튼을 눌러 설정해주세요.'); return; }
-  const code = document.getElementById('fcode').value.trim();
-  if (!code) { alert('종목코드를 입력하세요.'); return; }
-  const btn = document.querySelector('.fetch-price-btn');
-  btn.textContent = '조회중...'; btn.disabled = true;
-  try {
-    const data = await fetchPrice(code);
-    document.getElementById('fp').value = data.price;
-    if (!document.getElementById('fn').value) document.getElementById('fn').value = data.name;
-    const msg = document.getElementById('fmsg');
-    msg.style.color = '#1D9E75';
-    msg.textContent = `현재가: ${data.price.toLocaleString('ko-KR')}원 (${data.changeRate > 0 ? '+' : ''}${data.changeRate}%)`;
-  } catch(e) {
-    alert('시세 조회 실패: ' + e.message);
-  } finally {
-    btn.textContent = '시세↓'; btn.disabled = false;
-  }
-}
-
-// 통계 탭 전체 종목 현재가 갱신
-async function fetchAllPrices() {
-  log('시세 갱신 시작', 'info');
-  if (!apiCreds) {
-    log('KIS API 설정 없음 — 상단 KIS API 버튼에서 설정 필요', 'err');
-    alert('KIS API 설정이 필요합니다. 상단 KIS API 버튼을 눌러 설정해주세요.');
-    return;
-  }
-  const codes = [...new Set(trades.filter(t => t.code).map(t => t.code))];
-  if (!codes.length) {
-    log('종목코드 없음 — 거래 등록 시 종목코드를 입력해주세요', 'warn');
-    alert('종목코드가 등록된 거래가 없습니다.');
-    return;
-  }
-  log(`조회 대상: ${codes.join(', ')}`, 'info');
-  const btn = document.getElementById('refresh-btn');
-  btn.classList.add('loading');
-  document.getElementById('refresh-icon').textContent = '⟳';
-  try {
-    await ensureToken();
-    log('토큰 확인 완료', 'ok');
-    let successCount = 0;
-    for (const code of codes) {
-      try {
-        const data = await fetchPrice(code);
-        priceCache[code] = data;
-        successCount++;
-        log(`${data.name}(${code}) ${data.price.toLocaleString()}원 (${data.changeRate > 0 ? '+' : ''}${data.changeRate}%)`, 'ok');
-      } catch(e) {
-        log(`${code} 조회 실패: ${e.message}`, 'err');
-      }
-    }
-    log(`시세 갱신 완료 (${successCount}/${codes.length}건)`, successCount > 0 ? 'ok' : 'err');
-    document.getElementById('price-updated').textContent =
-      `마지막 갱신: ${new Date().toLocaleTimeString('ko-KR')}`;
-    renderPriceCards();
-    renderStockTable();
-  } catch(e) {
-    log('시세 갱신 오류: ' + e.message, 'err');
-    alert('시세 갱신 실패: ' + e.message);
-  } finally {
-    btn.classList.remove('loading');
-    document.getElementById('refresh-icon').textContent = '↻';
-  }
-}
-
-// ═══════════════════════════════════════════════════════════
-// API 설정 모달
-// ═══════════════════════════════════════════════════════════
-function openApiModal() {
-  if (apiCreds) {
-    document.getElementById('m-appkey').value = apiCreds.appKey;
-    document.getElementById('m-appsecret').value = '';
-    document.getElementById('m-ispaper').value = String(apiCreds.isPaper);
-    document.getElementById('m-clear-btn').style.display = '';
-  } else {
-    document.getElementById('m-appkey').value = '';
-    document.getElementById('m-appsecret').value = '';
-    document.getElementById('m-clear-btn').style.display = 'none';
-  }
-  document.getElementById('m-err').textContent = '';
-  document.getElementById('api-modal').style.display = 'flex';
-}
-
-function closeApiModal() {
-  document.getElementById('api-modal').style.display = 'none';
-}
-
-async function saveApiSettings() {
-  const appKey    = document.getElementById('m-appkey').value.trim();
-  const appSecret = document.getElementById('m-appsecret').value.trim();
-  const isPaper   = document.getElementById('m-ispaper').value === 'true';
-  const err = document.getElementById('m-err');
-  if (!appKey) { err.textContent = 'App Key를 입력하세요.'; return; }
-  // 기존 설정 수정 시 Secret 비워두면 기존 값 유지
-  const finalSecret = appSecret || (apiCreds ? apiCreds.appSecret : '');
-  if (!finalSecret) { err.textContent = 'App Secret을 입력하세요.'; return; }
-  await saveApiCreds({ appKey, appSecret: finalSecret, isPaper });
-  sessionStorage.removeItem(K.TOKEN); // 기존 토큰 초기화
-  updateApiStatusBtn();
-  closeApiModal();
-}
-
-async function clearApiSettings() {
-  if (!confirm('API 설정을 삭제하시겠습니까?')) return;
-  localStorage.removeItem(K.CREDS);
-  sessionStorage.removeItem(K.TOKEN);
-  apiCreds = null;
-  kisToken = null;
-  updateApiStatusBtn();
-  closeApiModal();
-}
-
-function updateApiStatusBtn() {
-  const btn = document.getElementById('api-status-btn');
-  if (apiCreds) {
-    btn.classList.add('connected');
-    btn.title = `연결됨 (${apiCreds.isPaper ? '모의투자' : '실전투자'})`;
-  } else {
-    btn.classList.remove('connected');
-    btn.title = 'KIS API 미설정';
-  }
-}
-
-// ═══════════════════════════════════════════════════════════
-// 뷰 전환
-// ═══════════════════════════════════════════════════════════
-function showView(v) {
-  ['cal','list','stats'].forEach(id => {
-    document.getElementById('v-'+id).style.display = id===v ? '' : 'none';
-  });
-  document.querySelectorAll('.ttab').forEach((el,i) => {
-    el.classList.toggle('active', ['cal','list','stats'][i] === v);
-  });
-  if(v==='list')  renderList();
-  if(v==='stats') renderStats();
-  if(v==='cal')   renderCal();
-}
-
-// ═══════════════════════════════════════════════════════════
-// 캘린더
-// ═══════════════════════════════════════════════════════════
-function moveM(d) {
-  cm += d;
-  if(cm > 11) { cm = 0; cy++; }
-  if(cm < 0)  { cm = 11; cy--; }
-  closePanel(); renderCal();
-}
-
-function renderCal() {
-  document.getElementById('cal-lbl').textContent = `${cy}년 ${cm+1}월`;
-  const first = new Date(cy, cm, 1);
-  const last  = new Date(cy, cm+1, 0);
-  const sd = first.getDay();
-  const map = {};
-  trades.forEach(t => { if(!map[t.date]) map[t.date]=[]; map[t.date].push(t); });
-  const cells = document.getElementById('cells');
-  cells.innerHTML = '';
-  const total = Math.ceil((sd + last.getDate()) / 7) * 7;
-  for(let i = 0; i < total; i++) {
-    const dn = i - sd + 1;
-    const d  = new Date(cy, cm, dn);
-    const ds = d.toISOString().slice(0,10);
-    const isCur   = d.getMonth() === cm;
-    const isToday = ds === todayStr;
-    const isSun   = d.getDay() === 0;
-    const isSat   = d.getDay() === 6;
-    const isSel   = ds === sel;
-    const c = document.createElement('div');
-    c.className = 'cell'+(isCur?'':' other')+(isToday?' today':'')+(isSel?' sel':'')+(isSun?' sun':'')+(isSat?' sat':'');
-    c.onclick = () => selectDate(ds);
-    const dt = map[ds] || [];
-    let html = `<div class="dnum">${d.getDate()}</div>`;
-    dt.slice(0,2).forEach(t => {
-      html += `<div class="ctrade ${t.type==='매입'?'buy':'sell'}">${t.name}</div>`;
-    });
-    if(dt.length > 2) html += `<div class="more">+${dt.length-2}건</div>`;
-    c.innerHTML = html;
-    cells.appendChild(c);
-  }
-}
-
-function selectDate(ds) {
-  sel = ds;
-  ['fn','fq','fp','ff','fm'].forEach(id => { document.getElementById(id).value = ''; });
-  document.getElementById('fcode').value = '';
-  document.getElementById('ac-list').style.display = 'none';
-  document.getElementById('fmsg').textContent = '';
-  const d = new Date(ds);
-  document.getElementById('panel-title').textContent =
-    `${d.getFullYear()}년 ${d.getMonth()+1}월 ${d.getDate()}일`;
-  renderDayList(ds);
-  document.getElementById('panel').style.display = '';
-  renderCal();
-  setTimeout(() => {
-    document.getElementById('panel').scrollIntoView({behavior:'smooth', block:'nearest'});
-  }, 60);
-}
-
-function renderDayList(ds) {
-  const dl = document.getElementById('day-list');
-  const dt = trades.filter(t => t.date === ds);
-  if(!dt.length) { dl.innerHTML = ''; return; }
-  dl.innerHTML = dt.map(t => `
-    <div class="dt-item">
-      <span class="dbadge ${t.type==='매입'?'buy':'sell'}">${t.type}</span>
-      <div>
-        <div class="dname">${t.name} ${t.code ? `<span style="font-size:10px;color:#aaa">${t.code}</span>` : ''} <span style="font-size:11px;color:#888;font-weight:400">${t.cat}</span></div>
-        <div class="ddetail">${fmtN(t.qty)}주 × ${fmtN(t.price)}원 = ${fmt(t.qty*t.price)}</div>
-        ${t.memo ? `<div class="dmemo">${t.memo}</div>` : ''}
-      </div>
-      <div style="display:flex;flex-direction:column;gap:4px;margin-left:auto">
-        <button class="ddel" style="color:#378ADD" onclick="openEditModal(${t.id})">수정</button>
-        <button class="ddel" onclick="del(${t.id})">삭제</button>
-      </div>
-    </div>`).join('');
-}
-
-function closePanel() {
-  sel = null;
-  document.getElementById('panel').style.display = 'none';
-  renderCal();
-}
-
-async function addTrade() {
-  if(!sel) return;
-  const name  = document.getElementById('fn').value.trim();
-  const code  = document.getElementById('fcode').value.trim().toUpperCase();
-  const cat   = document.getElementById('fc').value;
-  const type  = document.getElementById('ft').value;
-  const qty   = parseFloat(document.getElementById('fq').value) || 0;
-  const price = parseFloat(document.getElementById('fp').value) || 0;
-  const fee   = parseFloat(document.getElementById('ff').value) || 0;
-  const memo  = document.getElementById('fm').value.trim();
-  const msg   = document.getElementById('fmsg');
-  if(!name || qty <= 0 || price <= 0) {
-    msg.style.color = '#e24b4a'; msg.textContent = '종목명, 수량, 단가를 입력해주세요.'; return;
-  }
-  trades.push({id:Date.now(), name, code, cat, type, date:sel, qty, price, fee, memo});
-  trades.sort((a,b) => b.date.localeCompare(a.date));
-  await save();
-  msg.style.color = '#1D9E75'; msg.textContent = '✓ 등록되었습니다.';
-  ['fn','fcode','fq','fp','ff','fm'].forEach(id => { document.getElementById(id).value = ''; });
-  renderDayList(sel); renderCal();
-  setTimeout(() => { msg.textContent = ''; }, 2000);
-}
-
-async function del(id) {
-  if(!confirm('삭제하시겠습니까?')) return;
-  const scrollY = window.scrollY;
-  trades = trades.filter(t => t.id !== id);
-  await save();
-  if(sel) renderDayList(sel);
-  renderCal();
-  requestAnimationFrame(() => window.scrollTo(0, scrollY));
-}
-
-// ═══════════════════════════════════════════════════════════
-// 내역
-// ═══════════════════════════════════════════════════════════
-function renderList() {
-  const cf = document.getElementById('lfc').value;
-  const tf = document.getElementById('lft').value;
-  const sq = (document.getElementById('lsearch')?.value || '').trim().toLowerCase();
-  const sort = document.getElementById('lsort')?.value || 'date-desc';
-  let list = trades.filter(t =>
-    (cf ? t.cat===cf : true) &&
-    (tf ? t.type===tf : true) &&
-    (sq ? t.name.toLowerCase().includes(sq) || (t.code||'').toLowerCase().includes(sq) : true)
-  );
-  list = [...list].sort((a, b) => {
-    if (sort === 'date-desc') return b.date.localeCompare(a.date) || b.id - a.id;
-    if (sort === 'date-asc')  return a.date.localeCompare(b.date) || a.id - b.id;
-    if (sort === 'amount-desc') return (b.qty*b.price) - (a.qty*a.price);
-    if (sort === 'amount-asc')  return (a.qty*a.price) - (b.qty*b.price);
-    if (sort === 'name-asc')  return a.name.localeCompare(b.name, 'ko');
-    return 0;
-  });
-  const tb = document.getElementById('ltbody');
-  if(!list.length) { tb.innerHTML = `<tr><td colspan="11" class="empty">거래 내역이 없습니다</td></tr>`; return; }
-  tb.innerHTML = list.map(t => `<tr>
-    <td>${t.date}</td>
-    <td style="font-weight:600">${t.name}</td>
-    <td style="color:#aaa;font-size:12px">${t.code||'-'}</td>
-    <td style="color:#888">${t.cat}</td>
-    <td><span class="badge ${t.type==='매입'?'buy':'sell'}">${t.type}</span></td>
-    <td>${fmtN(t.qty)}</td>
-    <td>${fmtN(t.price)}</td>
-    <td>${fmt(t.qty*t.price)}</td>
-    <td style="color:#888;font-size:12px;max-width:100px" title="${t.memo||''}">${t.memo||'-'}</td>
-    <td><button style="background:none;border:none;color:#378ADD;cursor:pointer;font-size:12px" onclick="openEditModal(${t.id})">수정</button></td>
-    <td><button style="background:none;border:none;color:#e24b4a;cursor:pointer;font-size:12px" onclick="del(${t.id})">삭제</button></td>
-  </tr>`).join('');
-}
-
-// ═══════════════════════════════════════════════════════════
-// 통계
-// ═══════════════════════════════════════════════════════════
-function renderStats() {
-  const bt = trades.filter(t=>t.type==='매입').reduce((s,t)=>s+t.qty*t.price+t.fee, 0);
-  const st = trades.filter(t=>t.type==='매도').reduce((s,t)=>s+t.qty*t.price-t.fee, 0);
-  const pl = st - bt;
-  document.getElementById('sb').textContent = fmt(bt);
-  document.getElementById('ss').textContent = fmt(st);
-  const pe = document.getElementById('sp');
-  pe.textContent = (pl>=0?'+':'') + fmt(pl);
-  pe.className = 'mv ' + (pl>=0?'profit':'loss');
-
-  renderPriceCards();
-  renderMonthlyChart();
-  renderCatCards();
-  renderStockTable();
-}
-
-function renderPriceCards() {
-  const wrap = document.getElementById('price-cards-wrap');
-  // 코드가 있는 보유 종목만
-  const holdings = getHoldings().filter(h => h.code);
-
-  if (!apiCreds) {
-    wrap.innerHTML = `<div class="no-api-notice">
-      KIS API를 연결하면 실시간 현재가와 평가손익을 확인할 수 있습니다.<br>
-      <button onclick="openApiModal()">KIS API 연결하기</button>
-    </div>`;
-    return;
-  }
-  if (!holdings.length) {
-    wrap.innerHTML = `<div class="no-api-notice">종목코드가 등록된 보유 종목이 없습니다.</div>`;
-    return;
-  }
-
-  wrap.innerHTML = `<div class="price-cards">${holdings.map(h => {
-    const pc = priceCache[h.code];
-    if (!pc) return `
-      <div class="price-card">
-        <div class="pc-name">${h.name}</div>
-        <div class="pc-code">${h.code}</div>
-        <div class="pc-na">시세 갱신 버튼을 눌러주세요</div>
-      </div>`;
-    const pl = (pc.price - h.avgPrice) * h.qty;
-    const plRate = h.avgPrice > 0 ? ((pc.price - h.avgPrice) / h.avgPrice * 100).toFixed(2) : 0;
-    const isUp = pc.change >= 0;
-    return `
-      <div class="price-card">
-        <div class="pc-name">${pc.name || h.name}</div>
-        <div class="pc-code">${h.code}</div>
-        <div class="pc-price">${pc.price.toLocaleString('ko-KR')}원</div>
-        <div class="pc-change ${isUp?'up':'down'}">
-          ${isUp?'▲':'▼'} ${Math.abs(pc.change).toLocaleString('ko-KR')}원 (${isUp?'+':''}${pc.changeRate}%)
-        </div>
-        <div class="pc-eval">
-          보유 ${fmtN(h.qty)}주 · 평균 ${fmtN(h.avgPrice)}원<br>
-          평가손익 <span class="pc-eval-pl ${pl>=0?'profit':'loss'}">${pl>=0?'+':''}${fmt(pl)} (${plRate}%)</span>
-        </div>
-      </div>`;
-  }).join('')}</div>`;
-}
-
-function getHoldings() {
-  // 종목별로 거래를 날짜순 정렬 후 FIFO 방식으로 평균단가 계산
-  // 매도 후 재매수 케이스 처리: 매도 시 보유수량 비례로 비용 차감
-  const map = {};
-  const sorted = [...trades].sort((a,b) => a.date.localeCompare(b.date) || a.id - b.id);
-  sorted.forEach(t => {
-    const key = t.code || t.name;
-    if (!map[key]) map[key] = {name:t.name, code:t.code||'', qty:0, totalCost:0, cat:t.cat};
-    const h = map[key];
-    if (t.type === '매입') {
-      h.qty += t.qty;
-      h.totalCost += t.qty * t.price + (t.fee || 0);
-    } else {
-      // 매도 시 보유수량 비례로 평균단가 기반 비용 차감
-      if (h.qty > 0) {
-        const avgCostPerShare = h.totalCost / h.qty;
-        const soldCost = avgCostPerShare * Math.min(t.qty, h.qty);
-        h.totalCost = Math.max(0, h.totalCost - soldCost);
-      }
-      h.qty = Math.max(0, h.qty - t.qty);
-      if (h.qty === 0) h.totalCost = 0; // 완전 매도 시 비용 초기화
-    }
-  });
-  return Object.values(map)
-    .filter(h => h.qty > 0)
-    .map(h => ({...h, avgPrice: h.qty > 0 ? Math.round(h.totalCost / h.qty) : 0}));
-}
-
-function renderCatCards() {
-  const cats = [...new Set(trades.map(t=>t.cat))];
-  const cd = document.getElementById('cat-cards');
-  if(!cats.length) { cd.innerHTML = `<div class="empty">데이터가 없습니다</div>`; return; }
-  cd.innerHTML = cats.map(cat => {
-    const its = trades.filter(t=>t.cat===cat);
-    const b = its.filter(t=>t.type==='매입').reduce((s,t)=>s+t.qty*t.price+t.fee, 0);
-    const s = its.filter(t=>t.type==='매도').reduce((s,t)=>s+t.qty*t.price-t.fee, 0);
-    const p = s - b, rate = b>0 ? ((p/b)*100).toFixed(1) : 0, bw = Math.min(Math.abs(rate), 100);
-    return `<div class="ccard">
-      <div class="cname">${cat}</div>
-      <div class="crow">
-        <div class="ci"><label>매입</label><div class="cv">${fmt(b)}</div></div>
-        <div class="ci"><label>매도</label><div class="cv">${fmt(s)}</div></div>
-        <div class="ci"><label>손익</label><div class="cv ${p>=0?'profit':'loss'}">${p>=0?'+':''}${fmt(p)}</div></div>
-        <div class="ci"><label>수익률</label><div class="cv ${p>=0?'profit':'loss'}">${rate}%</div></div>
-      </div>
-      <div class="bar"><div class="bfill ${p<0?'neg':''}" style="width:${bw}%"></div></div>
-    </div>`;
-  }).join('');
-}
-
-function renderStockTable() {
-  const stocks = [...new Set(trades.map(t=>t.name))];
-  const stb = document.getElementById('stbody');
-  if(!stocks.length) { stb.innerHTML = `<tr><td colspan="7" class="empty">데이터 없음</td></tr>`; return; }
-  stb.innerHTML = stocks.map(name => {
-    const its = trades.filter(t=>t.name===name);
-    const code = its.find(t=>t.code)?.code || '';
-    const b = its.filter(t=>t.type==='매입').reduce((s,t)=>s+t.qty*t.price+t.fee, 0);
-    const s = its.filter(t=>t.type==='매도').reduce((s,t)=>s+t.qty*t.price-t.fee, 0);
-    const p = s - b, rate = b>0 ? ((p/b)*100).toFixed(1) : '-';
-    // 현재가 있으면 평가금액으로 덮어쓰기
-    const pc = code && priceCache[code];
-    const holdingQty = its.filter(t=>t.type==='매입').reduce((s,t)=>s+t.qty,0)
-                     - its.filter(t=>t.type==='매도').reduce((s,t)=>s+t.qty,0);
-    const evalStr = pc && holdingQty > 0
-      ? `<span style="font-size:11px;color:#888">현재가 ${fmtN(pc.price)}원</span>`
-      : '';
-    return `<tr>
-      <td style="font-weight:600">${name} ${evalStr}</td>
-      <td style="color:#aaa;font-size:12px">${code||'-'}</td>
-      <td style="color:#888">${its[0].cat}</td>
-      <td>${fmt(b)}</td><td>${fmt(s)}</td>
-      <td class="${p>=0?'profit':'loss'}" style="font-weight:600">${p>=0?'+':''}${fmt(p)}</td>
-      <td class="${p>=0?'profit':'loss'}">${rate}%</td>
-    </tr>`;
-  }).join('');
-}
-
-// ═══════════════════════════════════════════════════════════
-// 유틸
-// ═══════════════════════════════════════════════════════════
-function fmt(n)  { return Number(n).toLocaleString('ko-KR') + '원'; }
-function fmtN(n) { return Number(n).toLocaleString('ko-KR'); }
-
-// ═══════════════════════════════════════════════════════════
-// 로그
-// ═══════════════════════════════════════════════════════════
-let logVisible = false;
-let lastLogLevel = 'ok';
-
-function log(msg, level = 'ok') {
-  lastLogLevel = level;
-  const list = document.getElementById('log-list');
-  const dot  = document.getElementById('log-dot');
-  if (!list) return;
-  const empty = list.querySelector('.log-empty');
-  if (empty) empty.remove();
-  const now = new Date();
-  const t = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
-  const icon = level === 'ok' ? '✓' : level === 'err' ? '✕' : level === 'warn' ? '!' : '·';
-  const item = document.createElement('div');
-  item.className = 'log-item';
-  item.innerHTML = `<span class="log-time">${t}</span><span class="log-icon">${icon}</span><span class="log-msg ${level}">${msg}</span>`;
-  list.insertBefore(item, list.firstChild);
-  // 최대 50개 유지
-  while (list.children.length > 50) list.removeChild(list.lastChild);
-  // 도트 색상 업데이트
-  dot.className = 'log-dot' + (level === 'err' ? ' err' : level === 'warn' ? ' warn' : '');
-}
-
-function toggleLog() {
-  logVisible = !logVisible;
-  document.getElementById('log-panel').style.display = logVisible ? '' : 'none';
-}
-
-function clearLog() {
-  const list = document.getElementById('log-list');
-  list.innerHTML = '<div class="log-empty">아직 로그가 없습니다</div>';
-  document.getElementById('log-dot').className = 'log-dot';
-}
-
-// ═══════════════════════════════════════════════════════════
-// 거래 수정
-// ═══════════════════════════════════════════════════════════
-function openEditModal(id) {
-  const t = trades.find(t => t.id === id);
-  if (!t) return;
-  document.getElementById('edit-id').value = id;
-  document.getElementById('edit-name').value = t.name;
-  document.getElementById('edit-code').value = t.code || '';
-  document.getElementById('edit-date').value = t.date;
-  document.getElementById('edit-cat').value = t.cat;
-  document.getElementById('edit-type').value = t.type;
-  document.getElementById('edit-qty').value = t.qty;
-  document.getElementById('edit-price').value = t.price;
-  document.getElementById('edit-fee').value = t.fee || 0;
-  document.getElementById('edit-memo').value = t.memo || '';
-  document.getElementById('edit-err').textContent = '';
-  document.getElementById('edit-modal').style.display = 'flex';
-}
-
-function closeEditModal() {
-  document.getElementById('edit-modal').style.display = 'none';
-}
-
-async function saveEdit() {
-  const id    = Number(document.getElementById('edit-id').value);
-  const name  = document.getElementById('edit-name').value.trim();
-  const code  = document.getElementById('edit-code').value.trim().toUpperCase();
-  const date  = document.getElementById('edit-date').value;
-  const cat   = document.getElementById('edit-cat').value;
-  const type  = document.getElementById('edit-type').value;
-  const qty   = parseFloat(document.getElementById('edit-qty').value) || 0;
-  const price = parseFloat(document.getElementById('edit-price').value) || 0;
-  const fee   = parseFloat(document.getElementById('edit-fee').value) || 0;
-  const memo  = document.getElementById('edit-memo').value.trim();
-  const err   = document.getElementById('edit-err');
-  if (!name || qty <= 0 || price <= 0 || !date) {
-    err.textContent = '종목명, 날짜, 수량, 단가를 모두 입력해주세요.'; return;
-  }
-  const idx = trades.findIndex(t => t.id === id);
-  if (idx === -1) { err.textContent = '거래를 찾을 수 없습니다.'; return; }
-  trades[idx] = { ...trades[idx], name, code, date, cat, type, qty, price, fee, memo };
-  trades.sort((a,b) => b.date.localeCompare(a.date));
-  await save();
-  closeEditModal();
-  renderList();
-  if (sel) renderDayList(sel);
-  renderCal();
-  log(`거래 수정 완료: ${name}`, 'ok');
-}
-
-// ═══════════════════════════════════════════════════════════
-// CSV 내보내기
-// ═══════════════════════════════════════════════════════════
-function exportCSV() {
-  if (!trades.length) { alert('내보낼 거래 데이터가 없습니다.'); return; }
-  const header = ['날짜','종목명','종목코드','카테고리','거래유형','수량','단가','총액','수수료','메모'];
-  const rows = trades.map(t => [
-    t.date, t.name, t.code||'', t.cat, t.type,
-    t.qty, t.price, t.qty*t.price, t.fee||0,
-    `"${(t.memo||'').replace(/"/g,'""')}"`
-  ]);
-  const csv = '\uFEFF' + [header, ...rows].map(r => r.join(',')).join('\n');
-  const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `주식일기장_${new Date().toISOString().slice(0,10)}.csv`;
-  a.click();
-  log('CSV 내보내기 완료', 'ok');
-}
-
-// ═══════════════════════════════════════════════════════════
-// 월별 손익 차트
-// ═══════════════════════════════════════════════════════════
-function renderMonthlyChart() {
-  const el = document.getElementById('monthly-chart');
-  if (!el) return;
-  if (!trades.length) { el.innerHTML = '<div class="empty" style="padding:2rem">거래 데이터가 없습니다</div>'; return; }
-
-  // 월별 매입/매도 집계
-  const monthMap = {};
-  trades.forEach(t => {
-    const mo = t.date.slice(0, 7); // "YYYY-MM"
-    if (!monthMap[mo]) monthMap[mo] = {buy:0, sell:0};
-    if (t.type === '매입') monthMap[mo].buy += t.qty * t.price + (t.fee||0);
-    else monthMap[mo].sell += t.qty * t.price - (t.fee||0);
-  });
-
-  const months = Object.keys(monthMap).sort();
-  if (!months.length) { el.innerHTML = ''; return; }
-
-  const maxVal = Math.max(...months.map(m => Math.max(monthMap[m].buy, monthMap[m].sell)), 1);
-
-  const BAR_H = 28;
-  const LABEL_W = 64;
-  const GAP = 6;
-  const chartH = months.length * (BAR_H * 2 + GAP + 16) + 20;
-
-  let bars = '';
-  months.forEach((mo, i) => {
-    const {buy, sell} = monthMap[mo];
-    const pl = sell - buy;
-    const y = i * (BAR_H * 2 + GAP + 16) + 10;
-    const buyW = Math.max(2, (buy / maxVal) * (100));
-    const sellW = Math.max(sell > 0 ? 2 : 0, (sell / maxVal) * 100);
-    const plColor = pl >= 0 ? '#1D9E75' : '#e24b4a';
-
-    bars += `
-      <g>
-        <text x="${LABEL_W - 6}" y="${y + BAR_H - 7}" text-anchor="end" font-size="11" fill="#888">${mo}</text>
-        <!-- 매입 바 -->
-        <rect x="${LABEL_W}" y="${y}" width="${buyW}%" height="${BAR_H - 4}" rx="3" fill="#E1F5EE"/>
-        <text x="${LABEL_W + 6}" y="${y + BAR_H - 10}" font-size="10" fill="#0a5e3f" dominant-baseline="middle">매입 ${(buy/1e4).toFixed(0)}만</text>
-        <!-- 매도 바 -->
-        <rect x="${LABEL_W}" y="${y + BAR_H}" width="${sellW}%" height="${BAR_H - 4}" rx="3" fill="${sell > 0 ? '#FEECEC' : '#f5f5f5'}"/>
-        ${sell > 0 ? `<text x="${LABEL_W + 6}" y="${y + BAR_H * 2 - 10}" font-size="10" fill="#9b2222" dominant-baseline="middle">매도 ${(sell/1e4).toFixed(0)}만</text>` : ''}
-        <!-- 손익 -->
-        <text x="calc(${LABEL_W}px + ${Math.max(buyW, sellW)}% + 8px)" y="${y + BAR_H - 7}" font-size="10" fill="${plColor}" style="dominant-baseline:middle">${pl >= 0 ? '+' : ''}${(pl/1e4).toFixed(0)}만</text>
-      </g>`;
-  });
-
-  el.innerHTML = `
-    <div style="overflow-x:auto">
-      <svg width="100%" height="${chartH}" style="min-width:300px;display:block;font-family:inherit">
-        ${bars}
-      </svg>
-    </div>`;
-
-  // SVG 내 calc()는 지원 안되므로 JS로 손익 레이블 위치 조정
-  requestAnimationFrame(() => {
-    const svgEl = el.querySelector('svg');
-    if (!svgEl) return;
-    const svgW = svgEl.getBoundingClientRect().width;
-    const avail = svgW - LABEL_W;
-    months.forEach((mo, i) => {
-      const {buy, sell} = monthMap[mo];
-      const pl = sell - buy;
-      const buyW  = Math.max(2, (buy  / maxVal) * avail);
-      const sellW = Math.max(sell > 0 ? 2 : 0, (sell / maxVal) * avail);
-      const y = i * (BAR_H * 2 + GAP + 16) + 10;
-      const plX = LABEL_W + Math.max(buyW, sellW) + 8;
-      // find the last text in each group
-      const texts = svgEl.querySelectorAll(`g:nth-child(${i+1}) text`);
-      if (texts.length >= 2) {
-        const lastText = texts[texts.length - 1];
-        lastText.setAttribute('x', plX);
-        lastText.setAttribute('y', y + BAR_H - 7);
-        lastText.removeAttribute('style');
-      }
-    });
-  });
-}
-
-initLock();
 </script>
 </body>
 </html>
