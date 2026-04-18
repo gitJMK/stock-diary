@@ -6,10 +6,14 @@
 <title>통계 — 주식 일기장</title>
 <link rel="stylesheet" href="../css/common.css">
 <style>
-.smetrics{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;padding:1.25rem 1.5rem 0}
+.smetrics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding:1.25rem 1.5rem 0}
 .metric{background:#f9f9f9;border-radius:8px;padding:1rem;border:1px solid #eee}
+.metric.highlight{background:#1a1a1a;border-color:#1a1a1a}
+.metric.highlight .ml{color:#aaa}
+.metric.highlight .mv{color:#fff}
 .ml{font-size:11px;color:#888;margin-bottom:4px;font-weight:500}
 .mv{font-size:20px;font-weight:600}
+.mv.small{font-size:16px}
 .profit{color:#1D9E75}.loss{color:#e24b4a}
 
 /* 현재가 */
@@ -56,6 +60,7 @@
   .crow{grid-template-columns:1fr 1fr}
   .price-cards{grid-template-columns:1fr 1fr}
   .catsec,.price-section,.smetrics,.settings-section{padding-left:1rem;padding-right:1rem}
+  .metric.highlight{grid-column:1/-1}
 }
 </style>
 </head>
@@ -126,11 +131,24 @@
     </div>
   </div>
 
-  <!-- 요약 -->
+  <!-- 총자산 요약 -->
   <div class="smetrics">
-    <div class="metric"><div class="ml">총 매입금액</div><div class="mv" id="sb">0원</div></div>
-    <div class="metric"><div class="ml">총 매도금액</div><div class="mv" id="ss">0원</div></div>
-    <div class="metric"><div class="ml">실현 손익</div><div class="mv" id="sp">0원</div></div>
+    <div class="metric">
+      <div class="ml">예수금</div>
+      <div class="mv small" id="s-deposit">0원</div>
+    </div>
+    <div class="metric">
+      <div class="ml">매입금액</div>
+      <div class="mv small" id="sb">0원</div>
+    </div>
+    <div class="metric">
+      <div class="ml">평가금액</div>
+      <div class="mv small" id="s-eval">0원</div>
+    </div>
+    <div class="metric highlight">
+      <div class="ml">총자산</div>
+      <div class="mv small" id="s-total">0원</div>
+    </div>
   </div>
 
   <!-- 현재가 -->
@@ -167,6 +185,19 @@
     <div class="sec-title" style="margin-top:0;padding-top:1rem">⚙ 설정</div>
     <div class="settings-row">
       <div>
+        <div class="settings-label">예수금</div>
+        <div class="settings-sub">현재 증권 계좌 예수금을 입력하세요</div>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <input type="number" id="deposit-input" min="0" step="1"
+          placeholder="0"
+          style="width:130px;font-size:13px;padding:6px 10px;border:1px solid #ddd;border-radius:8px;text-align:right"
+          oninput="saveDeposit()">
+        <span style="font-size:12px;color:#888">원</span>
+      </div>
+    </div>
+    <div class="settings-row">
+      <div>
         <div class="settings-label">KIS API 연결</div>
         <div class="settings-sub" id="api-status-sub">미설정</div>
       </div>
@@ -198,29 +229,55 @@ const { userId, masterPw } = session;
 document.getElementById('topbar-user').textContent = userId;
 Logger.init();
 
-let trades = [], apiCreds = null, priceCache = {};
+let trades = [], apiCreds = null, priceCache = {}, deposit = 0;
 
 async function init() {
   trades   = await Storage.loadTrades(userId, masterPw);
   apiCreds = await Storage.loadCreds(userId, masterPw);
+  // 예수금 로드
+  const savedDeposit = localStorage.getItem(`sdv4_${userId}_deposit`);
+  if (savedDeposit) {
+    deposit = Number(savedDeposit) || 0;
+    document.getElementById('deposit-input').value = deposit || '';
+  }
   updateApiStatusSub();
   renderStats();
   log(`통계 로드 완료 (${trades.length}건)`, 'ok');
+}
+
+function saveDeposit() {
+  deposit = Number(document.getElementById('deposit-input').value) || 0;
+  localStorage.setItem(`sdv4_${userId}_deposit`, deposit);
+  renderSummaryMetrics();
+  log(`예수금 저장: ${TradeUtils.fmt(deposit)}`, 'ok');
 }
 
 function logout() { Session.clear(); location.href = '../index.html'; }
 function doExportCSV() { TradeUtils.exportCSV(trades); log('CSV 내보내기 완료','ok'); }
 
 // ── 통계 렌더 ────────────────────────────────────────────
-function renderStats() {
-  const bt = trades.filter(t=>t.type==='매입').reduce((s,t)=>s+t.qty*t.price+(t.fee||0),0);
-  const st = trades.filter(t=>t.type==='매도').reduce((s,t)=>s+t.qty*t.price-(t.fee||0),0);
-  const pl = st - bt;
+function calcEvalAmount() {
+  // 평가금액: 시세 있으면 현재가×보유수량, 없으면 매입금액 기준
+  const holdings = TradeUtils.getHoldings(trades);
+  return holdings.reduce((sum, h) => {
+    const pc = h.code && priceCache[h.code];
+    return sum + (pc ? pc.price * h.qty : h.avgPrice * h.qty);
+  }, 0);
+}
+
+function renderSummaryMetrics() {
+  const bt = trades.filter(t=>t.type==='매입').reduce((s,t)=>s+t.qty*t.price+(t.fee||0), 0);
+  const evalAmt = calcEvalAmount();
+  const total = deposit + evalAmt;
+
+  document.getElementById('s-deposit').textContent = TradeUtils.fmt(deposit);
   document.getElementById('sb').textContent = TradeUtils.fmt(bt);
-  document.getElementById('ss').textContent = TradeUtils.fmt(st);
-  const pe = document.getElementById('sp');
-  pe.textContent = (pl>=0?'+':'') + TradeUtils.fmt(pl);
-  pe.className = 'mv ' + (pl>=0?'profit':'loss');
+  document.getElementById('s-eval').textContent = TradeUtils.fmt(evalAmt);
+  document.getElementById('s-total').textContent = TradeUtils.fmt(total);
+}
+
+function renderStats() {
+  renderSummaryMetrics();
   renderPriceCards();
   renderMonthlyChart();
   renderCatCards();
@@ -401,6 +458,7 @@ async function fetchAllPrices(){
   document.getElementById('price-updated').textContent=`마지막 갱신: ${new Date().toLocaleTimeString('ko-KR')}`;
   btn.classList.remove('loading');
   document.getElementById('refresh-icon').textContent='↻';
+  renderSummaryMetrics();
   renderPriceCards(); renderStockTable();
   log(`시세 갱신 완료 (${ok}/${codes.length}건)`,ok>0?'ok':'err');
 }
