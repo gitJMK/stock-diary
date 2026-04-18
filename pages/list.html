@@ -105,6 +105,8 @@ tr:hover td{background:#fafafa}
       </select>
       <button class="btn btn-g" style="font-size:12px;padding:5px 12px;margin-left:auto" onclick="doExportCSV()">⬇ CSV</button>
     </div>
+    <!-- 종목 검색 요약 -->
+    <div id="stock-summary" style="display:none;background:#f0f7ff;border:1px solid #cce0ff;border-radius:10px;padding:12px 16px;margin-bottom:12px;font-size:12px"></div>
     <table>
       <thead><tr>
         <th>날짜</th><th>종목</th><th>코드</th><th>카테고리</th><th>유형</th>
@@ -156,6 +158,32 @@ function renderList() {
     (tf ? t.type===tf : true) &&
     (sq ? t.name.toLowerCase().includes(sq)||(t.code||'').toLowerCase().includes(sq) : true)
   );
+
+  // ── 종목 검색 요약 ─────────────────────────────────────
+  const summaryEl = document.getElementById('stock-summary');
+  if (sq && list.length) {
+    const buyTrades  = list.filter(t=>t.type==='매입');
+    const sellTrades = list.filter(t=>t.type==='매도');
+    const buyQty  = buyTrades.reduce((s,t)=>s+t.qty, 0);
+    const sellQty = sellTrades.reduce((s,t)=>s+t.qty, 0);
+    const buyAmt  = buyTrades.reduce((s,t)=>s+t.qty*t.price+(t.fee||0), 0);
+    const sellAmt = sellTrades.reduce((s,t)=>s+t.qty*t.price-(t.fee||0), 0);
+    const pl = sellAmt - buyAmt;
+    const names = [...new Set(list.map(t=>t.name))];
+    summaryEl.style.display = '';
+    summaryEl.innerHTML = `
+      <div style="font-weight:600;color:#1a1a1a;margin-bottom:8px">
+        🔍 ${names.join(', ')} — 총 ${list.length}건
+      </div>
+      <div style="display:flex;gap:16px;flex-wrap:wrap;color:#555">
+        <span>매입 <strong style="color:#0a5e3f">${TradeUtils.fmtN(buyQty)}주</strong> · ${TradeUtils.fmt(buyAmt)}</span>
+        <span>매도 <strong style="color:#9b2222">${TradeUtils.fmtN(sellQty)}주</strong> · ${TradeUtils.fmt(sellAmt)}</span>
+        <span>실현손익 <strong style="color:${pl>=0?'#1D9E75':'#e24b4a'}">${pl>=0?'+':''}${TradeUtils.fmt(pl)}</strong></span>
+      </div>`;
+  } else {
+    summaryEl.style.display = 'none';
+  }
+
   list = [...list].sort((a,b) => {
     if(sort==='date-desc') return b.date.localeCompare(a.date)||b.id-a.id;
     if(sort==='date-asc')  return a.date.localeCompare(b.date)||a.id-b.id;
