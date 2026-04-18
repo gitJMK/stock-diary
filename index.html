@@ -214,6 +214,16 @@ td{padding:8px 10px;border-bottom:1px solid #f0f0f0;overflow:hidden;text-overflo
   .cal-header{padding:.75rem 1rem}
   .topbar,.panel,.list-wrap,.catsec,.price-section{padding-left:1rem;padding-right:1rem}
   .price-cards{grid-template-columns:1fr 1fr}
+  /* 모바일 캘린더: 셀 높이 줄이고 종목명 숨김 처리 개선 */
+  .cell{min-height:52px;padding:3px 4px}
+  .dnum{font-size:11px;margin-bottom:2px}
+  .ctrade{font-size:9px;padding:1px 3px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .more{font-size:9px}
+  /* 내역 탭 모바일: 가로 스크롤 */
+  .list-wrap{overflow-x:auto}
+  table{min-width:640px}
+  .lfilters{flex-wrap:wrap;gap:6px}
+  .lfilters input{width:100px}
 }
 
 /* 로그 패널 */
@@ -337,6 +347,35 @@ td{padding:8px 10px;border-bottom:1px solid #f0f0f0;overflow:hidden;text-overflo
   </div>
 </div>
 
+<!-- 거래 수정 모달 -->
+<div class="modal-overlay" id="edit-modal" style="display:none">
+  <div class="modal">
+    <div class="modal-title">거래 수정</div>
+    <div class="modal-sub">내용을 수정한 후 저장하세요</div>
+    <input type="hidden" id="edit-id">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="mfg" style="grid-column:1/-1"><label>종목명</label><input type="text" id="edit-name"></div>
+      <div class="mfg"><label>종목코드</label><input type="text" id="edit-code"></div>
+      <div class="mfg"><label>날짜</label><input type="date" id="edit-date"></div>
+      <div class="mfg"><label>카테고리</label>
+        <select id="edit-cat"><option>국내주식</option><option>미국주식</option><option>ETF</option><option>코인</option><option>기타</option></select>
+      </div>
+      <div class="mfg"><label>거래 유형</label>
+        <select id="edit-type"><option value="매입">매입</option><option value="매도">매도</option></select>
+      </div>
+      <div class="mfg"><label>수량</label><input type="number" id="edit-qty" min="0" step="any"></div>
+      <div class="mfg"><label>단가 (원)</label><input type="number" id="edit-price" min="0" step="any"></div>
+      <div class="mfg"><label>수수료 (원)</label><input type="number" id="edit-fee" min="0" step="any"></div>
+      <div class="mfg" style="grid-column:1/-1"><label>메모</label><textarea id="edit-memo" style="min-height:54px"></textarea></div>
+    </div>
+    <div class="modal-err" id="edit-err"></div>
+    <div class="modal-btns">
+      <button class="mbtn mbtn-g" onclick="closeEditModal()">취소</button>
+      <button class="mbtn mbtn-p" onclick="saveEdit()">저장</button>
+    </div>
+  </div>
+</div>
+
 <div class="app" id="main-app" style="display:none">
   <div class="topbar">
     <span class="topbar-title">📈 주식 일기장</span>
@@ -435,6 +474,7 @@ td{padding:8px 10px;border-bottom:1px solid #f0f0f0;overflow:hidden;text-overflo
   <div id="v-list" style="display:none">
     <div class="list-wrap">
       <div class="lfilters">
+        <input type="text" id="lsearch" placeholder="종목명 검색..." style="font-size:12px;padding:5px 8px;width:130px" oninput="renderList()">
         <select id="lfc" onchange="renderList()">
           <option value="">전체 카테고리</option>
           <option>국내주식</option><option>미국주식</option><option>ETF</option><option>코인</option><option>기타</option>
@@ -442,11 +482,19 @@ td{padding:8px 10px;border-bottom:1px solid #f0f0f0;overflow:hidden;text-overflo
         <select id="lft" onchange="renderList()">
           <option value="">전체 유형</option><option value="매입">매입</option><option value="매도">매도</option>
         </select>
+        <select id="lsort" onchange="renderList()" style="font-size:12px;padding:5px 8px;width:auto">
+          <option value="date-desc">날짜 최신순</option>
+          <option value="date-asc">날짜 오래된순</option>
+          <option value="amount-desc">금액 큰순</option>
+          <option value="amount-asc">금액 작은순</option>
+          <option value="name-asc">종목명순</option>
+        </select>
+        <button class="btn btn-g" style="font-size:12px;padding:5px 12px;margin-left:auto" onclick="exportCSV()">⬇ CSV</button>
       </div>
       <table>
         <thead><tr>
           <th>날짜</th><th>종목</th><th>코드</th><th>카테고리</th><th>유형</th>
-          <th>수량</th><th>단가</th><th>총액</th><th>메모</th><th></th>
+          <th>수량</th><th>단가</th><th>총액</th><th>메모</th><th></th><th></th>
         </tr></thead>
         <tbody id="ltbody"></tbody>
       </table>
@@ -474,6 +522,8 @@ td{padding:8px 10px;border-bottom:1px solid #f0f0f0;overflow:hidden;text-overflo
     </div>
 
     <div class="catsec">
+      <div class="sec-title" style="margin-top:0">📅 월별 매매 현황</div>
+      <div id="monthly-chart" style="margin-bottom:1.5rem"></div>
       <div class="sec-title">카테고리별 현황</div>
       <div id="cat-cards"></div>
       <div class="sec-title">종목별 손익</div>
@@ -629,9 +679,13 @@ function onStockInput() {
   acResults = STOCK_DB.filter(s =>
     s.n.includes(q) || s.c.startsWith(q)
   ).slice(0, 8);
-  // 과거 입력 종목도 포함
-  const prev = [...new Set(trades.filter(t => t.name.includes(q)).map(t => ({n:t.name, c:t.code||'', t:t.cat})))];
-  prev.forEach(p => { if (!acResults.find(r => r.n === p.n)) acResults.unshift(p); });
+  // 과거 입력 종목도 포함 (중복 제거 수정: Set은 객체에 작동 안 함)
+  const prevMap = {};
+  trades.filter(t => t.name.includes(q) || (t.code && t.code.startsWith(q)))
+    .forEach(t => { prevMap[t.name] = {n:t.name, c:t.code||'', t:t.cat}; });
+  Object.values(prevMap).forEach(p => {
+    if (!acResults.find(r => r.n === p.n)) acResults.unshift(p);
+  });
   acResults = acResults.slice(0, 8);
   if (!acResults.length) { list.style.display = 'none'; return; }
   list.innerHTML = acResults.map((s, i) => `
@@ -1267,7 +1321,10 @@ function renderDayList(ds) {
         <div class="ddetail">${fmtN(t.qty)}주 × ${fmtN(t.price)}원 = ${fmt(t.qty*t.price)}</div>
         ${t.memo ? `<div class="dmemo">${t.memo}</div>` : ''}
       </div>
-      <button class="ddel" onclick="del(${t.id})">삭제</button>
+      <div style="display:flex;flex-direction:column;gap:4px;margin-left:auto">
+        <button class="ddel" style="color:#378ADD" onclick="openEditModal(${t.id})">수정</button>
+        <button class="ddel" onclick="del(${t.id})">삭제</button>
+      </div>
     </div>`).join('');
 }
 
@@ -1302,10 +1359,12 @@ async function addTrade() {
 
 async function del(id) {
   if(!confirm('삭제하시겠습니까?')) return;
+  const scrollY = window.scrollY;
   trades = trades.filter(t => t.id !== id);
   await save();
   if(sel) renderDayList(sel);
   renderCal();
+  requestAnimationFrame(() => window.scrollTo(0, scrollY));
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -1314,9 +1373,23 @@ async function del(id) {
 function renderList() {
   const cf = document.getElementById('lfc').value;
   const tf = document.getElementById('lft').value;
-  const list = trades.filter(t => (cf ? t.cat===cf : true) && (tf ? t.type===tf : true));
+  const sq = (document.getElementById('lsearch')?.value || '').trim().toLowerCase();
+  const sort = document.getElementById('lsort')?.value || 'date-desc';
+  let list = trades.filter(t =>
+    (cf ? t.cat===cf : true) &&
+    (tf ? t.type===tf : true) &&
+    (sq ? t.name.toLowerCase().includes(sq) || (t.code||'').toLowerCase().includes(sq) : true)
+  );
+  list = [...list].sort((a, b) => {
+    if (sort === 'date-desc') return b.date.localeCompare(a.date) || b.id - a.id;
+    if (sort === 'date-asc')  return a.date.localeCompare(b.date) || a.id - b.id;
+    if (sort === 'amount-desc') return (b.qty*b.price) - (a.qty*a.price);
+    if (sort === 'amount-asc')  return (a.qty*a.price) - (b.qty*b.price);
+    if (sort === 'name-asc')  return a.name.localeCompare(b.name, 'ko');
+    return 0;
+  });
   const tb = document.getElementById('ltbody');
-  if(!list.length) { tb.innerHTML = `<tr><td colspan="10" class="empty">거래 내역이 없습니다</td></tr>`; return; }
+  if(!list.length) { tb.innerHTML = `<tr><td colspan="11" class="empty">거래 내역이 없습니다</td></tr>`; return; }
   tb.innerHTML = list.map(t => `<tr>
     <td>${t.date}</td>
     <td style="font-weight:600">${t.name}</td>
@@ -1326,7 +1399,8 @@ function renderList() {
     <td>${fmtN(t.qty)}</td>
     <td>${fmtN(t.price)}</td>
     <td>${fmt(t.qty*t.price)}</td>
-    <td style="color:#888;font-size:12px;max-width:100px" title="${t.memo}">${t.memo||'-'}</td>
+    <td style="color:#888;font-size:12px;max-width:100px" title="${t.memo||''}">${t.memo||'-'}</td>
+    <td><button style="background:none;border:none;color:#378ADD;cursor:pointer;font-size:12px" onclick="openEditModal(${t.id})">수정</button></td>
     <td><button style="background:none;border:none;color:#e24b4a;cursor:pointer;font-size:12px" onclick="del(${t.id})">삭제</button></td>
   </tr>`).join('');
 }
@@ -1345,6 +1419,7 @@ function renderStats() {
   pe.className = 'mv ' + (pl>=0?'profit':'loss');
 
   renderPriceCards();
+  renderMonthlyChart();
   renderCatCards();
   renderStockTable();
 }
@@ -1394,17 +1469,26 @@ function renderPriceCards() {
 }
 
 function getHoldings() {
-  // 매입 수량 - 매도 수량 계산
+  // 종목별로 거래를 날짜순 정렬 후 FIFO 방식으로 평균단가 계산
+  // 매도 후 재매수 케이스 처리: 매도 시 보유수량 비례로 비용 차감
   const map = {};
-  trades.forEach(t => {
+  const sorted = [...trades].sort((a,b) => a.date.localeCompare(b.date) || a.id - b.id);
+  sorted.forEach(t => {
     const key = t.code || t.name;
     if (!map[key]) map[key] = {name:t.name, code:t.code||'', qty:0, totalCost:0, cat:t.cat};
+    const h = map[key];
     if (t.type === '매입') {
-      map[key].qty += t.qty;
-      map[key].totalCost += t.qty * t.price + t.fee;
+      h.qty += t.qty;
+      h.totalCost += t.qty * t.price + (t.fee || 0);
     } else {
-      map[key].qty -= t.qty;
-      map[key].totalCost -= t.qty * t.price;
+      // 매도 시 보유수량 비례로 평균단가 기반 비용 차감
+      if (h.qty > 0) {
+        const avgCostPerShare = h.totalCost / h.qty;
+        const soldCost = avgCostPerShare * Math.min(t.qty, h.qty);
+        h.totalCost = Math.max(0, h.totalCost - soldCost);
+      }
+      h.qty = Math.max(0, h.qty - t.qty);
+      if (h.qty === 0) h.totalCost = 0; // 완전 매도 시 비용 초기화
     }
   });
   return Object.values(map)
@@ -1503,6 +1587,159 @@ function clearLog() {
   const list = document.getElementById('log-list');
   list.innerHTML = '<div class="log-empty">아직 로그가 없습니다</div>';
   document.getElementById('log-dot').className = 'log-dot';
+}
+
+// ═══════════════════════════════════════════════════════════
+// 거래 수정
+// ═══════════════════════════════════════════════════════════
+function openEditModal(id) {
+  const t = trades.find(t => t.id === id);
+  if (!t) return;
+  document.getElementById('edit-id').value = id;
+  document.getElementById('edit-name').value = t.name;
+  document.getElementById('edit-code').value = t.code || '';
+  document.getElementById('edit-date').value = t.date;
+  document.getElementById('edit-cat').value = t.cat;
+  document.getElementById('edit-type').value = t.type;
+  document.getElementById('edit-qty').value = t.qty;
+  document.getElementById('edit-price').value = t.price;
+  document.getElementById('edit-fee').value = t.fee || 0;
+  document.getElementById('edit-memo').value = t.memo || '';
+  document.getElementById('edit-err').textContent = '';
+  document.getElementById('edit-modal').style.display = 'flex';
+}
+
+function closeEditModal() {
+  document.getElementById('edit-modal').style.display = 'none';
+}
+
+async function saveEdit() {
+  const id    = Number(document.getElementById('edit-id').value);
+  const name  = document.getElementById('edit-name').value.trim();
+  const code  = document.getElementById('edit-code').value.trim().toUpperCase();
+  const date  = document.getElementById('edit-date').value;
+  const cat   = document.getElementById('edit-cat').value;
+  const type  = document.getElementById('edit-type').value;
+  const qty   = parseFloat(document.getElementById('edit-qty').value) || 0;
+  const price = parseFloat(document.getElementById('edit-price').value) || 0;
+  const fee   = parseFloat(document.getElementById('edit-fee').value) || 0;
+  const memo  = document.getElementById('edit-memo').value.trim();
+  const err   = document.getElementById('edit-err');
+  if (!name || qty <= 0 || price <= 0 || !date) {
+    err.textContent = '종목명, 날짜, 수량, 단가를 모두 입력해주세요.'; return;
+  }
+  const idx = trades.findIndex(t => t.id === id);
+  if (idx === -1) { err.textContent = '거래를 찾을 수 없습니다.'; return; }
+  trades[idx] = { ...trades[idx], name, code, date, cat, type, qty, price, fee, memo };
+  trades.sort((a,b) => b.date.localeCompare(a.date));
+  await save();
+  closeEditModal();
+  renderList();
+  if (sel) renderDayList(sel);
+  renderCal();
+  log(`거래 수정 완료: ${name}`, 'ok');
+}
+
+// ═══════════════════════════════════════════════════════════
+// CSV 내보내기
+// ═══════════════════════════════════════════════════════════
+function exportCSV() {
+  if (!trades.length) { alert('내보낼 거래 데이터가 없습니다.'); return; }
+  const header = ['날짜','종목명','종목코드','카테고리','거래유형','수량','단가','총액','수수료','메모'];
+  const rows = trades.map(t => [
+    t.date, t.name, t.code||'', t.cat, t.type,
+    t.qty, t.price, t.qty*t.price, t.fee||0,
+    `"${(t.memo||'').replace(/"/g,'""')}"`
+  ]);
+  const csv = '\uFEFF' + [header, ...rows].map(r => r.join(',')).join('\n');
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `주식일기장_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  log('CSV 내보내기 완료', 'ok');
+}
+
+// ═══════════════════════════════════════════════════════════
+// 월별 손익 차트
+// ═══════════════════════════════════════════════════════════
+function renderMonthlyChart() {
+  const el = document.getElementById('monthly-chart');
+  if (!el) return;
+  if (!trades.length) { el.innerHTML = '<div class="empty" style="padding:2rem">거래 데이터가 없습니다</div>'; return; }
+
+  // 월별 매입/매도 집계
+  const monthMap = {};
+  trades.forEach(t => {
+    const mo = t.date.slice(0, 7); // "YYYY-MM"
+    if (!monthMap[mo]) monthMap[mo] = {buy:0, sell:0};
+    if (t.type === '매입') monthMap[mo].buy += t.qty * t.price + (t.fee||0);
+    else monthMap[mo].sell += t.qty * t.price - (t.fee||0);
+  });
+
+  const months = Object.keys(monthMap).sort();
+  if (!months.length) { el.innerHTML = ''; return; }
+
+  const maxVal = Math.max(...months.map(m => Math.max(monthMap[m].buy, monthMap[m].sell)), 1);
+
+  const BAR_H = 28;
+  const LABEL_W = 64;
+  const GAP = 6;
+  const chartH = months.length * (BAR_H * 2 + GAP + 16) + 20;
+
+  let bars = '';
+  months.forEach((mo, i) => {
+    const {buy, sell} = monthMap[mo];
+    const pl = sell - buy;
+    const y = i * (BAR_H * 2 + GAP + 16) + 10;
+    const buyW = Math.max(2, (buy / maxVal) * (100));
+    const sellW = Math.max(sell > 0 ? 2 : 0, (sell / maxVal) * 100);
+    const plColor = pl >= 0 ? '#1D9E75' : '#e24b4a';
+
+    bars += `
+      <g>
+        <text x="${LABEL_W - 6}" y="${y + BAR_H - 7}" text-anchor="end" font-size="11" fill="#888">${mo}</text>
+        <!-- 매입 바 -->
+        <rect x="${LABEL_W}" y="${y}" width="${buyW}%" height="${BAR_H - 4}" rx="3" fill="#E1F5EE"/>
+        <text x="${LABEL_W + 6}" y="${y + BAR_H - 10}" font-size="10" fill="#0a5e3f" dominant-baseline="middle">매입 ${(buy/1e4).toFixed(0)}만</text>
+        <!-- 매도 바 -->
+        <rect x="${LABEL_W}" y="${y + BAR_H}" width="${sellW}%" height="${BAR_H - 4}" rx="3" fill="${sell > 0 ? '#FEECEC' : '#f5f5f5'}"/>
+        ${sell > 0 ? `<text x="${LABEL_W + 6}" y="${y + BAR_H * 2 - 10}" font-size="10" fill="#9b2222" dominant-baseline="middle">매도 ${(sell/1e4).toFixed(0)}만</text>` : ''}
+        <!-- 손익 -->
+        <text x="calc(${LABEL_W}px + ${Math.max(buyW, sellW)}% + 8px)" y="${y + BAR_H - 7}" font-size="10" fill="${plColor}" style="dominant-baseline:middle">${pl >= 0 ? '+' : ''}${(pl/1e4).toFixed(0)}만</text>
+      </g>`;
+  });
+
+  el.innerHTML = `
+    <div style="overflow-x:auto">
+      <svg width="100%" height="${chartH}" style="min-width:300px;display:block;font-family:inherit">
+        ${bars}
+      </svg>
+    </div>`;
+
+  // SVG 내 calc()는 지원 안되므로 JS로 손익 레이블 위치 조정
+  requestAnimationFrame(() => {
+    const svgEl = el.querySelector('svg');
+    if (!svgEl) return;
+    const svgW = svgEl.getBoundingClientRect().width;
+    const avail = svgW - LABEL_W;
+    months.forEach((mo, i) => {
+      const {buy, sell} = monthMap[mo];
+      const pl = sell - buy;
+      const buyW  = Math.max(2, (buy  / maxVal) * avail);
+      const sellW = Math.max(sell > 0 ? 2 : 0, (sell / maxVal) * avail);
+      const y = i * (BAR_H * 2 + GAP + 16) + 10;
+      const plX = LABEL_W + Math.max(buyW, sellW) + 8;
+      // find the last text in each group
+      const texts = svgEl.querySelectorAll(`g:nth-child(${i+1}) text`);
+      if (texts.length >= 2) {
+        const lastText = texts[texts.length - 1];
+        lastText.setAttribute('x', plX);
+        lastText.setAttribute('y', y + BAR_H - 7);
+        lastText.removeAttribute('style');
+      }
+    });
+  });
 }
 
 initLock();
