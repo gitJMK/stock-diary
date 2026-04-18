@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>통계 — 주식 일기장</title>
 <link rel="stylesheet" href="../css/common.css">
 <style>
@@ -167,12 +167,18 @@
 
 <div class="app">
   <div class="topbar">
-    <span class="topbar-title">📈 주식 일기장 <span class="topbar-user" id="topbar-user"></span></span>
+    <span class="topbar-title">📈 주식 일기장</span>
     <div class="topbar-right">
       <a class="ttab" href="calendar.html">캘린더</a>
       <a class="ttab" href="list.html">내역</a>
       <a class="ttab active" href="stats.html">통계</a>
-      <button class="api-btn" onclick="logout()" style="color:#e24b4a;border-color:#e24b4a">로그아웃</button>
+      <div class="user-btn-wrap">
+        <button class="user-btn" id="user-btn" onclick="toggleUserPopup()">👤</button>
+        <div class="user-popup" id="user-popup" style="display:none">
+          <div class="user-popup-name">👤 <span id="topbar-user"></span></div>
+          <button class="user-popup-btn" onclick="logout()">로그아웃</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -301,6 +307,16 @@ function addDepositAmount() {
 }
 
 function logout() { Session.clear(); location.href = '../index.html'; }
+function toggleUserPopup() {
+  const p = document.getElementById('user-popup');
+  p.style.display = p.style.display === 'none' ? '' : 'none';
+}
+document.addEventListener('click', e => {
+  if (!e.target.closest('.user-btn-wrap')) {
+    const p = document.getElementById('user-popup');
+    if (p) p.style.display = 'none';
+  }
+});
 function doExportCSV() { TradeUtils.exportCSV(trades); log('CSV 내보내기 완료','ok'); }
 
 // ── 통계 렌더 ────────────────────────────────────────────

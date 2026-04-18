@@ -1,9 +1,9 @@
 // ═══════════════════════════════════════════════════════════
 // auth.js — 계정 관리 & 암호화 공통 모듈
-// ver0.0.09
+// ver0.0.10
 // ═══════════════════════════════════════════════════════════
 
-const APP_VERSION = 'ver0.0.09';
+const APP_VERSION = 'ver0.0.10';
 
 // ── 스토리지 키 네임스페이스 ──────────────────────────────
 // 계정별로 완전히 분리: sdv4_{userId}_trades / sdv4_{userId}_creds 등
@@ -66,7 +66,13 @@ const AccountManager = {
   remove(userId) {
     const list = this.list().filter(u => u !== userId);
     localStorage.setItem(KEY.ACCOUNTS, JSON.stringify(list));
-    [KEY.tradesKey(userId), KEY.credsKey(userId), KEY.hashKey(userId)].forEach(k => localStorage.removeItem(k));
+    [
+      KEY.tradesKey(userId),
+      KEY.credsKey(userId),
+      KEY.hashKey(userId),
+      `sdv4_${userId}_deposit`,
+      `sdv4_${userId}_syncid`,
+    ].forEach(k => localStorage.removeItem(k));
     sessionStorage.removeItem(KEY.tokenKey(userId));
   },
 
