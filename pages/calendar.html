@@ -216,24 +216,24 @@
           </div>
           <div class="fg">
             <label>카테고리</label>
-            <select id="fc"><option>국내주식</option><option>미국주식</option><option>ETF</option><option>코인</option><option>기타</option></select>
+            <select id="fc" onchange="calcAutoFee()"><option>국내주식</option><option>미국주식</option><option>ETF</option><option>코인</option><option>기타</option></select>
           </div>
-          <div class="fg"><label>거래 유형</label><select id="ft"><option value="매입">매입</option><option value="매도">매도</option></select></div>
+          <div class="fg"><label>거래 유형</label><select id="ft" onchange="calcAutoFee()"><option value="매입">매입</option><option value="매도">매도</option></select></div>
           <div class="fg">
             <label>수량 (주)</label>
             <div class="input-with-btn">
-              <input id="fq" type="number" min="0" step="any" placeholder="0">
+              <input id="fq" type="number" min="0" step="any" placeholder="0" oninput="calcAutoFee()">
               <button class="fetch-price-btn" onclick="openCalc('qty')">🧮</button>
             </div>
           </div>
           <div class="fg">
             <label>단가 (원)</label>
             <div class="input-with-btn">
-              <input id="fp" type="number" min="0" step="any" placeholder="0">
+              <input id="fp" type="number" min="0" step="any" placeholder="0" oninput="calcAutoFee()">
               <button class="fetch-price-btn" onclick="openCalc('price')">🧮</button>
             </div>
           </div>
-          <div class="fg"><label>수수료 (원, 선택)</label><input id="ff" type="number" min="0" step="any" placeholder="0"></div>
+          <div class="fg"><label>수수료 (원, 자동계산)</label><input id="ff" type="number" min="0" step="any" placeholder="자동계산"></div>
           <div class="fg full"><label>메모</label><textarea id="fm" placeholder="매매 이유, 목표가, 시장 상황 등..."></textarea></div>
         </div>
         <div class="brow">
@@ -338,6 +338,18 @@ function closePanel() {
   sel=null; document.getElementById('panel').style.display='none'; renderCal();
 }
 
+// ── 수수료 자동 계산 (한국투자증권) ──────────────────────
+function calcAutoFee() {
+  const qty   = parseFloat(document.getElementById('fq').value) || 0;
+  const price = parseFloat(document.getElementById('fp').value) || 0;
+  const type  = document.getElementById('ft').value;
+  const cat   = document.getElementById('fc').value;
+  if (qty > 0 && price > 0) {
+    const fee = KisFee.calc(qty, price, type, cat);
+    document.getElementById('ff').value = fee;
+  }
+}
+
 async function addTrade() {
   if(!sel) return;
   const name=document.getElementById('fn').value.trim();
@@ -352,6 +364,14 @@ async function addTrade() {
   trades.push({id:Date.now(),name,code,cat,type,date:sel,qty,price,fee,memo});
   trades.sort((a,b)=>b.date.localeCompare(a.date));
   await Storage.saveTrades(userId, masterPw, trades);
+
+  // 매도 시 예수금 자동 합산 (매도금액 - 수수료)
+  if (type === '매도') {
+    const sellNet = qty * price - fee;
+    Storage.addDeposit(userId, sellNet);
+    log(`매도 예수금 자동 합산: +${TradeUtils.fmt(sellNet)}`, 'ok');
+  }
+
   msg.style.color='#1D9E75'; msg.textContent='✓ 등록되었습니다.';
   ['fn','fcode','fq','fp','ff','fm'].forEach(id=>{document.getElementById(id).value='';});
   renderDayList(sel); renderCal();

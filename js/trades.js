@@ -99,7 +99,26 @@ const TradeUtils = {
   }
 };
 
-// ── KIS API ───────────────────────────────────────────────
+// ── 한국투자증권 수수료 자동 계산 ────────────────────────
+const KisFee = {
+  // 위탁수수료 0.015% + 유관기관 0.0036396%
+  BROKERAGE: 0.00015 + 0.000036396,
+  // 증권거래세 (매도시만): 코스피/코스닥 0.18%, ETF 0%
+  TAX_STOCK: 0.0018,
+  TAX_ETF:   0,
+
+  calc(qty, price, type, cat) {
+    const amount = qty * price;
+    const brokerage = Math.round(amount * this.BROKERAGE);
+    let tax = 0;
+    if (type === '매도') {
+      tax = cat === 'ETF'
+        ? Math.round(amount * this.TAX_ETF)
+        : Math.round(amount * this.TAX_STOCK);
+    }
+    return brokerage + tax;
+  }
+};
 const KisAPI = {
   PROXY_BASE: 'https://kis-proxy.i-jmkfx.workers.dev',
 

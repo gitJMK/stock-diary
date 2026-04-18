@@ -48,6 +48,24 @@ const Storage = {
     localStorage.removeItem(KEY.credsKey(userId));
   },
 
+  // ── 예수금 관리 ──────────────────────────────────────────
+  depositKey: uid => `sdv4_${uid}_deposit`,
+
+  getDeposit(userId) {
+    return Number(localStorage.getItem(this.depositKey(userId)) || 0);
+  },
+
+  setDeposit(userId, amount) {
+    localStorage.setItem(this.depositKey(userId), Math.max(0, Math.round(amount)));
+  },
+
+  // 예수금에 금액 추가 (누적)
+  addDeposit(userId, amount) {
+    const current = this.getDeposit(userId);
+    this.setDeposit(userId, current + amount);
+    return this.getDeposit(userId);
+  },
+
   // ── 클라우드 동기화 (Cloudflare KV) ──────────────────────
   PROXY_BASE: 'https://kis-proxy.i-jmkfx.workers.dev',
   SYNC_ID_KEY: uid => `sdv4_${uid}_syncid`,
