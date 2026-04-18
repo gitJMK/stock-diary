@@ -361,15 +361,31 @@ async function addTrade() {
   const memo=document.getElementById('fm').value.trim();
   const msg=document.getElementById('fmsg');
   if(!name||qty<=0||price<=0){msg.style.color='#e24b4a';msg.textContent='종목명, 수량, 단가를 입력해주세요.';return;}
+
+  const totalCost = qty * price + fee;
+  const currentDeposit = Storage.getDeposit(userId);
+
+  // 매입 시 예수금 잔액 확인
+  if (type === '매입') {
+    if (currentDeposit < totalCost) {
+      msg.style.color='#e24b4a';
+      msg.textContent=`예수금 부족 (필요: ${TradeUtils.fmt(totalCost)}, 잔액: ${TradeUtils.fmt(currentDeposit)})`;
+      return;
+    }
+  }
+
   trades.push({id:Date.now(),name,code,cat,type,date:sel,qty,price,fee,memo});
   trades.sort((a,b)=>b.date.localeCompare(a.date));
   await Storage.saveTrades(userId, masterPw, trades);
 
-  // 매도 시 예수금 자동 합산 (매도금액 - 수수료)
-  if (type === '매도') {
+  // 예수금 처리
+  if (type === '매입') {
+    Storage.addDeposit(userId, -totalCost);
+    log(`매입 예수금 차감: -${TradeUtils.fmt(totalCost)} → 잔액 ${TradeUtils.fmt(Storage.getDeposit(userId))}`, 'ok');
+  } else if (type === '매도') {
     const sellNet = qty * price - fee;
     Storage.addDeposit(userId, sellNet);
-    log(`매도 예수금 자동 합산: +${TradeUtils.fmt(sellNet)}`, 'ok');
+    log(`매도 예수금 합산: +${TradeUtils.fmt(sellNet)} → 잔액 ${TradeUtils.fmt(Storage.getDeposit(userId))}`, 'ok');
   }
 
   msg.style.color='#1D9E75'; msg.textContent='✓ 등록되었습니다.';

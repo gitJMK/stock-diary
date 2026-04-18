@@ -236,7 +236,7 @@
     <div class="settings-row">
       <div>
         <div class="settings-label">예수금</div>
-        <div class="settings-sub">현재 잔액: <strong id="deposit-current">0원</strong></div>
+        <div class="settings-sub">금액 입력 후 추가 버튼을 누르세요</div>
       </div>
       <div style="display:flex;gap:6px;align-items:center">
         <input type="number" id="deposit-input" min="0" step="1"
@@ -244,7 +244,6 @@
           style="width:110px;font-size:13px;padding:6px 10px;border:1px solid #ddd;border-radius:8px;text-align:right">
         <button onclick="openCalc()" style="padding:6px 10px;font-size:14px;background:#f5f5f5;border:1px solid #ddd;border-radius:8px;cursor:pointer">🧮</button>
         <button onclick="addDepositAmount()" style="padding:6px 12px;font-size:12px;background:#1a1a1a;color:#fff;border:none;border-radius:8px;cursor:pointer">추가</button>
-        <button onclick="resetDeposit()" style="padding:6px 10px;font-size:12px;background:#fff;border:1px solid #e24b4a;color:#e24b4a;border-radius:8px;cursor:pointer">초기화</button>
       </div>
     </div>
     <div class="settings-row">
@@ -286,16 +285,9 @@ async function init() {
   trades   = await Storage.loadTrades(userId, masterPw);
   apiCreds = await Storage.loadCreds(userId, masterPw);
   deposit  = Storage.getDeposit(userId);
-  updateDepositDisplay();
   updateApiStatusSub();
   renderStats();
   log(`통계 로드 완료 (${trades.length}건)`, 'ok');
-}
-
-function updateDepositDisplay() {
-  deposit = Storage.getDeposit(userId);
-  const el = document.getElementById('deposit-current');
-  if (el) el.textContent = TradeUtils.fmt(deposit);
 }
 
 function addDepositAmount() {
@@ -304,18 +296,8 @@ function addDepositAmount() {
   if (amount <= 0) { alert('추가할 금액을 입력해주세요.'); return; }
   Storage.addDeposit(userId, amount);
   input.value = '';
-  updateDepositDisplay();
   renderSummaryMetrics();
   log(`예수금 추가: +${TradeUtils.fmt(amount)} → 잔액 ${TradeUtils.fmt(Storage.getDeposit(userId))}`, 'ok');
-}
-
-function resetDeposit() {
-  if (!confirm('예수금을 0으로 초기화하시겠습니까?')) return;
-  Storage.setDeposit(userId, 0);
-  document.getElementById('deposit-input').value = '';
-  updateDepositDisplay();
-  renderSummaryMetrics();
-  log('예수금 초기화', 'warn');
 }
 
 function logout() { Session.clear(); location.href = '../index.html'; }
