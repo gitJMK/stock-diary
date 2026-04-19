@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>내역 — 주식 일기장</title>
+<link rel="stylesheet" href="../css/common.css">
+<style>
+.list-wrap{padding:1rem 1.5rem 2rem}
+.lfilters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;align-items:center}
+.lfilters input{font-size:12px;padding:5px 8px;width:130px}
+.lfilters select{font-size:12px;padding:5px 8px;width:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:8px 10px;font-size:11px;font-weight:600;color:#888;border-bottom:1px solid #e5e5e5;text-transform:uppercase;letter-spacing:.3px;cursor:pointer;user-select:none;white-space:nowrap}
+th:hover{color:#333}
+th .sort-icon{margin-left:3px;color:#ccc}
+th.sorted .sort-icon{color:#1a1a1a}
+td{padding:8px 10px;border-bottom:1px solid #f0f0f0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+tr:hover td{background:#fafafa}
+.summary-bar{display:flex;gap:16px;padding:.75rem 1.5rem;background:#f9f9f9;border-bottom:1px solid #eee;font-size:12px;color:#666;flex-wrap:wrap}
+.summary-item strong{color:#1a1a1a}
+
+/* 수정 모달 */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:500;display:flex;align-items:center;justify-content:center}
+.modal{background:#fff;border-radius:16px;padding:1.75rem;width:400px;max-width:calc(100vw - 2rem)}
+
+@media(max-width:600px){
+  .list-wrap{overflow-x:auto;padding:1rem}
+  table{min-width:620px}
+  .lfilters input{width:100px}
+  .summary-bar{padding:.75rem 1rem}
+}
+</style>
+</head>
+<body>
+<!-- 로그 패널 -->
+<button class="log-toggle" id="log-toggle-btn" onclick="toggleLog()">
+  <span class="log-dot" id="log-dot"></span> LOG
+</button>
+<div class="log-panel" id="log-panel" style="display:none">
+  <div class="log-panel-header">
+    <span class="log-panel-title">실행 로그</span>
+    <span class="log-ver" id="version-badge"></span>
+    <button class="log-clear" onclick="clearLog()">전체 삭제</button>
+  </div>
+  <div class="log-list" id="log-list"><div class="log-empty">아직 로그가 없습니다</div></div>
+</div>
+
+<!-- 거래 수정 모달 -->
+<div class="modal-overlay" id="edit-modal" style="display:none">
+  <div class="modal">
+    <div class="modal-title">거래 수정</div>
+    <div class="modal-sub">내용을 수정한 후 저장하세요</div>
+    <input type="hidden" id="edit-id">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="mfg" style="grid-column:1/-1"><label>종목명</label><input type="text" id="edit-name"></div>
+      <div class="mfg"><label>종목코드</label><input type="text" id="edit-code"></div>
+      <div class="mfg"><label>날짜</label><input type="date" id="edit-date"></div>
+      <div class="mfg"><label>카테고리</label>
+        <select id="edit-cat"><option>국내주식</option><option>미국주식</option><option>ETF</option><option>코인</option><option>기타</option></select></div>
+      <div class="mfg"><label>거래 유형</label>
+        <select id="edit-type"><option value="매입">매입</option><option value="매도">매도</option></select></div>
+      <div class="mfg"><label>수량</label><input type="number" id="edit-qty" min="0" step="any"></div>
+      <div class="mfg"><label>단가 (원)</label><input type="number" id="edit-price" min="0" step="any"></div>
+      <div class="mfg"><label>수수료 (원)</label><input type="number" id="edit-fee" min="0" step="any"></div>
+      <div class="mfg" style="grid-column:1/-1"><label>메모</label><textarea id="edit-memo" style="min-height:54px"></textarea></div>
+    </div>
+    <div class="modal-err" id="edit-err"></div>
+    <div class="modal-btns">
+      <button class="mbtn mbtn-g" onclick="closeEditModal()">취소</button>
+      <button class="mbtn mbtn-p" onclick="saveEdit()">저장</button>
+    </div>
+  </div>
+</div>
+
+<div class="app">
+  <div class="topbar">
+    <span class="topbar-title">📈 주식 일기장 <span class="topbar-user" id="topbar-user"></span></span>
+    <div class="topbar-right">
+      <a class="ttab" href="calendar.html">캘린더</a>
+      <a class="ttab active" href="list.html">내역</a>
+      <a class="ttab" href="stats.html">자산</a>
+      <button class="api-btn" onclick="logout()" style="color:#e24b4a;border-color:#e24b4a">로그아웃</button>
+    </div>
+  </div>
+
+  <div class="summary-bar" id="summary-bar"></div>
+
+  <div class="list-wrap">
+    <div class="lfilters">
+      <input type="text" id="lsearch" placeholder="종목명 검색..." oninput="renderList()">
+      <select id="lfc" onchange="renderList()">
+        <option value="">전체 카테고리</option>
+        <option>국내주식</option><option>미국주식</option><option>ETF</option><option>코인</option><option>기타</option>
+      </select>
+      <select id="lft" onchange="renderList()">
+        <option value="">전체 유형</option><option value="매입">매입</option><option value="매도">매도</option>
+      </select>
+      <select id="lsort" onchange="renderList()">
+        <option value="date-desc">날짜 최신순</option>
+        <option value="date-asc">날짜 오래된순</option>
+        <option value="amount-desc">금액 큰순</option>
+        <option value="amount-asc">금액 작은순</option>
+        <option value="name-asc">종목명순</option>
+      </select>
+      <button class="btn btn-g" style="font-size:12px;padding:5px 12px;margin-left:auto" onclick="doExportCSV()">⬇ CSV</button>
+    </div>
+    <table>
+      <thead><tr>
+        <th>날짜</th><th>종목</th><th>코드</th><th>카테고리</th><th>유형</th>
+        <th>수량</th><th>단가</th><th>총액</th><th>메모</th><th></th><th></th>
+      </tr></thead>
+      <tbody id="ltbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<script src="../js/auth.js"></script>
+<script src="../js/storage.js"></script>
+<script src="../js/trades.js"></script>
+<script>
+const session = Session.require('pages/list.html');
+const { userId, masterPw } = session;
+document.getElementById('topbar-user').textContent = userId;
+Logger.init();
+
+let trades = [];
+
+async function init() {
+  trades = await Storage.loadTrades(userId, masterPw);
+  renderSummary();
+  renderList();
+  log(`내역 로드 완료 (${trades.length}건)`, 'ok');
+}
+
+function logout() { Session.clear(); location.href = '../index.html'; }
+
+function renderSummary() {
+  const bt = trades.filter(t=>t.type==='매입').reduce((s,t)=>s+t.qty*t.price+(t.fee||0),0);
+  const st = trades.filter(t=>t.type==='매도').reduce((s,t)=>s+t.qty*t.price-(t.fee||0),0);
+  const pl = TradeUtils.getRealizedPL(trades).total;
+  document.getElementById('summary-bar').innerHTML = `
+    <span>총 거래 <strong>${trades.length}건</strong></span>
+    <span>매입 <strong>${TradeUtils.fmt(bt)}</strong></span>
+    <span>매도 <strong>${TradeUtils.fmt(st)}</strong></span>
+    <span>실현손익 <strong style="color:${pl>=0?'#1D9E75':'#e24b4a'}">${pl>=0?'+':''}${TradeUtils.fmt(pl)}</strong></span>`;
+}
+
+function renderList() {
+  const cf = document.getElementById('lfc').value;
+  const tf = document.getElementById('lft').value;
+  const sq = (document.getElementById('lsearch').value || '').trim().toLowerCase();
+  const sort = document.getElementById('lsort').value;
+  let list = trades.filter(t =>
+    (cf ? t.cat===cf : true) &&
+    (tf ? t.type===tf : true) &&
+    (sq ? t.name.toLowerCase().includes(sq)||(t.code||'').toLowerCase().includes(sq) : true)
+  );
+  list = [...list].sort((a,b) => {
+    if(sort==='date-desc') return b.date.localeCompare(a.date)||b.id-a.id;
+    if(sort==='date-asc')  return a.date.localeCompare(b.date)||a.id-b.id;
+    if(sort==='amount-desc') return (b.qty*b.price)-(a.qty*a.price);
+    if(sort==='amount-asc')  return (a.qty*a.price)-(b.qty*b.price);
+    if(sort==='name-asc')  return a.name.localeCompare(b.name,'ko');
+    return 0;
+  });
+  const tb = document.getElementById('ltbody');
+  if(!list.length){tb.innerHTML=`<tr><td colspan="11" class="empty">거래 내역이 없습니다</td></tr>`;return;}
+  tb.innerHTML = list.map(t=>`<tr>
+    <td>${t.date}</td>
+    <td style="font-weight:600">${t.name}</td>
+    <td style="color:#aaa;font-size:12px">${t.code||'-'}</td>
+    <td style="color:#888">${t.cat}</td>
+    <td><span class="badge ${t.type==='매입'?'buy':'sell'}">${t.type}</span></td>
+    <td>${TradeUtils.fmtN(t.qty)}</td>
+    <td>${TradeUtils.fmtN(t.price)}</td>
+    <td>${TradeUtils.fmt(t.qty*t.price)}</td>
+    <td style="color:#888;font-size:12px;max-width:100px" title="${t.memo||''}">${t.memo||'-'}</td>
+    <td><button style="background:none;border:none;color:#378ADD;cursor:pointer;font-size:12px" onclick="openEditModal(${t.id})">수정</button></td>
+    <td><button style="background:none;border:none;color:#e24b4a;cursor:pointer;font-size:12px" onclick="delTrade(${t.id})">삭제</button></td>
+  </tr>`).join('');
+}
+
+function doExportCSV() { TradeUtils.exportCSV(trades); log('CSV 내보내기 완료','ok'); }
+
+async function delTrade(id) {
+  if(!confirm('삭제하시겠습니까?')) return;
+  trades = trades.filter(t=>t.id!==id);
+  await Storage.saveTrades(userId, masterPw, trades);
+  renderSummary(); renderList();
+}
+
+function openEditModal(id) {
+  const t=trades.find(t=>t.id===id); if(!t) return;
+  document.getElementById('edit-id').value=id;
+  document.getElementById('edit-name').value=t.name;
+  document.getElementById('edit-code').value=t.code||'';
+  document.getElementById('edit-date').value=t.date;
+  document.getElementById('edit-cat').value=t.cat;
+  document.getElementById('edit-type').value=t.type;
+  document.getElementById('edit-qty').value=t.qty;
+  document.getElementById('edit-price').value=t.price;
+  document.getElementById('edit-fee').value=t.fee||0;
+  document.getElementById('edit-memo').value=t.memo||'';
+  document.getElementById('edit-err').textContent='';
+  document.getElementById('edit-modal').style.display='flex';
+}
+function closeEditModal(){document.getElementById('edit-modal').style.display='none';}
+async function saveEdit() {
+  const id=Number(document.getElementById('edit-id').value);
+  const name=document.getElementById('edit-name').value.trim();
+  const code=document.getElementById('edit-code').value.trim().toUpperCase();
+  const date=document.getElementById('edit-date').value;
+  const cat=document.getElementById('edit-cat').value, type=document.getElementById('edit-type').value;
+  const qty=parseFloat(document.getElementById('edit-qty').value)||0;
+  const price=parseFloat(document.getElementById('edit-price').value)||0;
+  const fee=parseFloat(document.getElementById('edit-fee').value)||0;
+  const memo=document.getElementById('edit-memo').value.trim();
+  const err=document.getElementById('edit-err');
+  if(!name||qty<=0||price<=0||!date){err.textContent='모든 필드를 입력해주세요.';return;}
+  const idx=trades.findIndex(t=>t.id===id);
+  if(idx===-1){err.textContent='거래를 찾을 수 없습니다.';return;}
+  trades[idx]={...trades[idx],name,code,date,cat,type,qty,price,fee,memo};
+  trades.sort((a,b)=>b.date.localeCompare(a.date));
+  await Storage.saveTrades(userId,masterPw,trades);
+  closeEditModal(); renderSummary(); renderList();
+  log(`거래 수정: ${name}`,'ok');
+}
+
+init();
+</script>
+</body>
+</html>

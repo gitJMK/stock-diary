@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>주식 일기장</title>
+<link rel="stylesheet" href="css/common.css">
+<style>
+.hub{max-width:480px;margin:0 auto;padding:2rem 1.5rem;min-height:100vh;display:flex;flex-direction:column}
+.hub-logo{font-size:28px;text-align:center;margin-bottom:.25rem}
+.hub-title{font-size:22px;font-weight:700;text-align:center;letter-spacing:-.5px;margin-bottom:.25rem}
+.hub-sub{font-size:13px;color:#aaa;text-align:center;margin-bottom:2rem}
+
+/* 계정 목록 */
+.account-list{display:flex;flex-direction:column;gap:10px;margin-bottom:1.5rem}
+.account-card{display:flex;align-items:center;gap:12px;padding:14px 16px;background:#f9f9f9;border-radius:12px;border:1px solid #eee;cursor:pointer;transition:all .15s}
+.account-card:hover{background:#f0f0f0;border-color:#ddd}
+.account-avatar{width:38px;height:38px;border-radius:50%;background:#1a1a1a;color:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;flex-shrink:0}
+.account-info{flex:1}
+.account-name{font-size:14px;font-weight:600}
+.account-meta{font-size:11px;color:#aaa;margin-top:2px}
+.account-arrow{color:#ccc;font-size:18px}
+.account-del{background:none;border:none;color:#e24b4a;cursor:pointer;font-size:11px;padding:4px 8px;border-radius:6px;opacity:0;transition:opacity .15s}
+.account-card:hover .account-del{opacity:1}
+
+.divider{display:flex;align-items:center;gap:10px;margin-bottom:1.25rem}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:#e5e5e5}
+.divider span{font-size:12px;color:#bbb}
+
+.add-account-btn{width:100%;padding:12px;background:#fff;border:1px dashed #ccc;border-radius:12px;color:#888;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:all .15s}
+.add-account-btn:hover{background:#f9f9f9;border-color:#999;color:#555}
+
+/* 로그인 카드 */
+.login-card{background:#fff;border-radius:16px;padding:1.75rem;border:1px solid #e5e5e5;box-shadow:0 2px 16px rgba(0,0,0,.06);margin-bottom:1rem}
+.login-back{background:none;border:none;color:#888;cursor:pointer;font-size:13px;margin-bottom:1rem;display:flex;align-items:center;gap:4px;padding:0}
+.login-back:hover{color:#333}
+.login-avatar{width:48px;height:48px;border-radius:50%;background:#1a1a1a;color:#fff;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;margin:0 auto 1rem}
+.login-name{font-size:17px;font-weight:600;text-align:center;margin-bottom:.25rem}
+.login-sub{font-size:12px;color:#aaa;text-align:center;margin-bottom:1.5rem}
+.login-input{width:100%;padding:11px 14px;border:1px solid #ddd;border-radius:10px;font-size:14px;margin-bottom:10px}
+.login-input:focus{outline:none;border-color:#999}
+.login-btn{width:100%;padding:12px;background:#1a1a1a;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:500;cursor:pointer;margin-bottom:6px}
+.login-btn:hover{background:#333}
+.login-err{font-size:12px;color:#e24b4a;text-align:center;min-height:18px;background:#fff5f5;border-radius:6px;transition:padding .15s}
+.login-err:not(:empty){padding:7px 10px;margin-bottom:6px}
+
+/* 신규 계정 폼 */
+.new-account-form{background:#fff;border-radius:16px;padding:1.75rem;border:1px solid #e5e5e5;box-shadow:0 2px 16px rgba(0,0,0,.06)}
+.new-form-title{font-size:15px;font-weight:600;margin-bottom:.25rem}
+.new-form-sub{font-size:12px;color:#888;margin-bottom:1.25rem}
+.new-input{width:100%;padding:10px 14px;border:1px solid #ddd;border-radius:10px;font-size:13px;margin-bottom:8px}
+.new-input:focus{outline:none;border-color:#999}
+.new-btns{display:flex;gap:8px;margin-top:4px}
+.new-btn-p{flex:1;padding:10px;background:#1a1a1a;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:500;cursor:pointer}
+.new-btn-p:hover{background:#333}
+.new-btn-g{flex:1;padding:10px;background:#fff;border:1px solid #ddd;border-radius:10px;font-size:13px;color:#666;cursor:pointer}
+.new-btn-g:hover{background:#f5f5f5}
+.new-err{font-size:12px;color:#e24b4a;min-height:16px;margin-bottom:4px}
+
+.hub-footer{margin-top:auto;padding-top:2rem;text-align:center;font-size:11px;color:#ccc}
+</style>
+</head>
+<body>
+<!-- 로그 패널 -->
+<button class="log-toggle" id="log-toggle-btn" onclick="toggleLog()">
+  <span class="log-dot" id="log-dot"></span> LOG
+</button>
+<div class="log-panel" id="log-panel" style="display:none">
+  <div class="log-panel-header">
+    <span class="log-panel-title">실행 로그</span>
+    <span class="log-ver" id="version-badge"></span>
+    <button class="log-clear" onclick="clearLog()">전체 삭제</button>
+  </div>
+  <div class="log-list" id="log-list">
+    <div class="log-empty">아직 로그가 없습니다</div>
+  </div>
+</div>
+
+<div class="hub">
+  <div style="margin-top:2.5rem margin-bottom:.5rem">
+    <div class="hub-logo">📈</div>
+    <div class="hub-title">주식 일기장</div>
+    <div class="hub-sub">계정을 선택하거나 새로 만드세요</div>
+  </div>
+
+  <!-- 구버전 데이터 감지 배너 -->
+  <div id="legacy-banner" style="display:none;background:#FFF8E6;border:1px solid #EFD080;border-radius:12px;padding:14px 16px;margin-bottom:1.25rem;font-size:12px;line-height:1.6">
+    <div style="font-weight:600;color:#7A5C00;margin-bottom:4px">⚠ 이전 버전 데이터가 감지되었습니다</div>
+    <div style="color:#7A5C00">새 버전은 계정별 데이터 구조로 변경되었습니다.<br>기존 데이터는 CSV로 백업 후 초기화를 권장합니다.</div>
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <button onclick="clearLegacyData()" style="padding:6px 14px;font-size:12px;background:#1a1a1a;color:#fff;border:none;border-radius:8px;cursor:pointer">🗑 구버전 데이터 초기화</button>
+      <button onclick="dismissLegacyBanner()" style="padding:6px 14px;font-size:12px;background:#fff;border:1px solid #ddd;border-radius:8px;cursor:pointer;color:#666">나중에</button>
+    </div>
+  </div>
+
+  <!-- 계정 목록 화면 -->
+  <div id="screen-accounts">
+    <div class="account-list" id="account-list"></div>
+    <div class="divider"><span>또는</span></div>
+    <button class="add-account-btn" onclick="showNewAccount()">＋ 새 계정 만들기</button>
+  </div>
+
+  <!-- 로그인 화면 -->
+  <div id="screen-login" style="display:none">
+    <div class="login-card">
+      <button class="login-back" onclick="showAccounts()">← 계정 목록</button>
+      <div class="login-avatar" id="login-avatar"></div>
+      <div class="login-name" id="login-username"></div>
+      <div class="login-sub">비밀번호를 입력하세요</div>
+      <div class="login-err" id="login-err"></div>
+      <input class="login-input" type="password" id="login-pw" placeholder="비밀번호" autocomplete="current-password">
+      <button class="login-btn" onclick="doLogin()">로그인</button>
+    </div>
+  </div>
+
+  <!-- 신규 계정 화면 -->
+  <div id="screen-new" style="display:none">
+    <div class="new-account-form">
+      <div class="new-form-title">새 계정 만들기</div>
+      <div class="new-form-sub">계정 ID와 비밀번호를 설정하세요. 비밀번호 분실 시 복구 불가합니다.</div>
+      <div class="new-err" id="new-err"></div>
+      <input class="new-input" type="text" id="new-userid" placeholder="계정 ID (영문, 숫자, 4자 이상)" maxlength="32" autocomplete="off">
+      <input class="new-input" type="password" id="new-pw" placeholder="비밀번호 (4자 이상)" autocomplete="new-password">
+      <input class="new-input" type="password" id="new-pw2" placeholder="비밀번호 확인" autocomplete="new-password">
+      <div class="new-btns">
+        <button class="new-btn-g" onclick="showAccounts()">취소</button>
+        <button class="new-btn-p" onclick="createAccount()">계정 만들기</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="hub-footer" id="hub-footer">주식 일기장 <span id="version-footer"></span></div>
+</div>
+
+<script src="js/auth.js"></script>
+<script>
+let loginTarget = null; // 로그인 시도 중인 userId
+
+// ── 화면 전환 ─────────────────────────────────────────────
+function showAccounts() {
+  document.getElementById('screen-accounts').style.display = '';
+  document.getElementById('screen-login').style.display = 'none';
+  document.getElementById('screen-new').style.display = 'none';
+  renderAccountList();
+}
+
+function showLogin(userId) {
+  loginTarget = userId;
+  document.getElementById('login-avatar').textContent = userId.slice(0,2).toUpperCase();
+  document.getElementById('login-username').textContent = userId;
+  document.getElementById('login-err').textContent = '';
+  document.getElementById('login-pw').value = '';
+  document.getElementById('screen-accounts').style.display = 'none';
+  document.getElementById('screen-login').style.display = '';
+  document.getElementById('screen-new').style.display = 'none';
+  setTimeout(() => document.getElementById('login-pw').focus(), 100);
+}
+
+function showNewAccount() {
+  document.getElementById('new-userid').value = '';
+  document.getElementById('new-pw').value = '';
+  document.getElementById('new-pw2').value = '';
+  document.getElementById('new-err').textContent = '';
+  document.getElementById('screen-accounts').style.display = 'none';
+  document.getElementById('screen-login').style.display = 'none';
+  document.getElementById('screen-new').style.display = '';
+  setTimeout(() => document.getElementById('new-userid').focus(), 100);
+}
+
+// ── 계정 목록 렌더 ────────────────────────────────────────
+function renderAccountList() {
+  const list = AccountManager.list();
+  const el = document.getElementById('account-list');
+  if (!list.length) {
+    el.innerHTML = `<div style="text-align:center;padding:2rem;color:#aaa;font-size:13px">
+      아직 계정이 없습니다.<br>새 계정을 만들어 시작하세요.
+    </div>`;
+    return;
+  }
+  el.innerHTML = list.map(uid => {
+    const hasData = !!localStorage.getItem(KEY.tradesKey(uid));
+    return `<div class="account-card" onclick="showLogin('${uid}')">
+      <div class="account-avatar">${uid.slice(0,2).toUpperCase()}</div>
+      <div class="account-info">
+        <div class="account-name">${uid}</div>
+        <div class="account-meta">${hasData ? '거래 데이터 있음' : '데이터 없음'}</div>
+      </div>
+      <button class="account-del" onclick="deleteAccount(event,'${uid}')">삭제</button>
+      <span class="account-arrow">›</span>
+    </div>`;
+  }).join('');
+}
+
+function deleteAccount(e, uid) {
+  e.stopPropagation();
+  if (!confirm(`'${uid}' 계정과 모든 데이터를 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.`)) return;
+  AccountManager.remove(uid);
+  log(`계정 삭제: ${uid}`, 'warn');
+  renderAccountList();
+}
+
+// ── 로그인 ────────────────────────────────────────────────
+async function doLogin() {
+  const pw  = document.getElementById('login-pw').value;
+  const err = document.getElementById('login-err');
+  err.textContent = '';
+  if (!pw || pw.length < 4) { err.textContent = '비밀번호는 4자 이상이어야 합니다.'; return; }
+  log(`[${loginTarget}] 로그인 시도...`, 'info');
+  const stored = localStorage.getItem(KEY.hashKey(loginTarget));
+  const input  = await Crypto.hash(pw + 'stock_diary_v4_' + loginTarget);
+  if (stored !== input) {
+    err.textContent = '비밀번호가 올바르지 않습니다.';
+    log(`[${loginTarget}] 비밀번호 틀림`, 'err');
+    return;
+  }
+  Session.set(loginTarget, pw);
+  log(`[${loginTarget}] 로그인 성공`, 'ok');
+  // redirect 파라미터가 있으면 해당 페이지로, 없으면 캘린더로
+  const params = new URLSearchParams(location.search);
+  const redirect = params.get('redirect');
+  location.href = redirect ? decodeURIComponent(redirect) : 'pages/calendar.html';
+}
+
+// ── 신규 계정 ─────────────────────────────────────────────
+async function createAccount() {
+  const uid  = document.getElementById('new-userid').value.trim();
+  const pw   = document.getElementById('new-pw').value;
+  const pw2  = document.getElementById('new-pw2').value;
+  const err  = document.getElementById('new-err');
+  err.textContent = '';
+  if (!uid || uid.length < 4)         { err.textContent = '계정 ID는 4자 이상이어야 합니다.'; return; }
+  if (!/^[a-zA-Z0-9_-]+$/.test(uid)) { err.textContent = '계정 ID는 영문, 숫자, _ - 만 사용 가능합니다.'; return; }
+  if (AccountManager.exists(uid))     { err.textContent = '이미 존재하는 계정 ID입니다.'; return; }
+  if (!pw || pw.length < 4)           { err.textContent = '비밀번호는 4자 이상이어야 합니다.'; return; }
+  if (pw !== pw2)                      { err.textContent = '비밀번호가 일치하지 않습니다.'; return; }
+  log(`계정 생성 중: ${uid}`, 'info');
+  const h = await Crypto.hash(pw + 'stock_diary_v4_' + uid);
+  localStorage.setItem(KEY.hashKey(uid), h);
+  AccountManager.add(uid);
+  Session.set(uid, pw);
+  log(`계정 생성 완료: ${uid}`, 'ok');
+  location.href = 'pages/calendar.html';
+}
+
+// ── 키보드 ────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter') {
+    if (document.getElementById('screen-login').style.display !== 'none') doLogin();
+    if (document.getElementById('screen-new').style.display !== 'none') {
+      const uid = document.getElementById('new-userid');
+      const pw  = document.getElementById('new-pw');
+      const pw2 = document.getElementById('new-pw2');
+      if (document.activeElement === uid) pw.focus();
+      else if (document.activeElement === pw) pw2.focus();
+      else createAccount();
+    }
+  }
+});
+
+// ── 구버전 데이터 감지 & 초기화 ─────────────────────────
+const LEGACY_KEYS = ['sdv3_trades', 'sdv3_creds', 'sdv3_hash', 'sdv3_token'];
+
+function checkLegacyData() {
+  const hasLegacy = LEGACY_KEYS.some(k => localStorage.getItem(k));
+  const dismissed = sessionStorage.getItem('legacy_dismissed');
+  if (hasLegacy && !dismissed) {
+    document.getElementById('legacy-banner').style.display = '';
+    log('구버전 데이터(sdv3) 감지됨', 'warn');
+  }
+}
+
+function clearLegacyData() {
+  if (!confirm('구버전 데이터를 삭제하시겠습니까?\n(새 버전 계정 데이터는 유지됩니다)')) return;
+  LEGACY_KEYS.forEach(k => localStorage.removeItem(k));
+  document.getElementById('legacy-banner').style.display = 'none';
+  log('구버전 데이터 초기화 완료', 'ok');
+}
+
+function dismissLegacyBanner() {
+  sessionStorage.setItem('legacy_dismissed', '1');
+  document.getElementById('legacy-banner').style.display = 'none';
+}
+
+// ── 초기화 ────────────────────────────────────────────────
+Logger.init();
+document.getElementById('version-footer').textContent = APP_VERSION;
+// 이미 로그인된 세션이 있으면 바로 이동
+const existing = Session.get();
+if (existing) {
+  log(`기존 세션 발견: ${existing.userId}`, 'info');
+  location.href = 'pages/calendar.html';
+} else {
+  showAccounts();
+  checkLegacyData();
+}
+</script>
+</body>
+</html>
