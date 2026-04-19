@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>주식 일기장</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f5;color:#1a1a1a;font-size:14px}
+.app{max-width:900px;margin:0 auto;background:#fff;min-height:100vh}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:1rem 1.5rem;border-bottom:1px solid #e5e5e5;background:#fff}
+.topbar-title{font-size:16px;font-weight:600;letter-spacing:-0.3px}
+.ttabs{display:flex;gap:4px}
+.ttab{padding:6px 14px;font-size:13px;background:none;border:1px solid #ddd;border-radius:8px;cursor:pointer;color:#666}
+.ttab.active{background:#1a1a1a;color:#fff;border-color:#1a1a1a}
+.cal-header{display:flex;align-items:center;justify-content:space-between;padding:.75rem 1.5rem;border-bottom:1px solid #e5e5e5}
+.cal-nav{display:flex;align-items:center;gap:10px}
+.nav-btn{background:none;border:1px solid #ddd;border-radius:8px;padding:5px 12px;cursor:pointer;font-size:15px;color:#1a1a1a}
+.nav-btn:hover{background:#f5f5f5}
+.cal-month{font-size:15px;font-weight:600;min-width:110px;text-align:center}
+.legend{display:flex;gap:14px;font-size:12px;color:#666}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block;vertical-align:middle;margin-right:3px}
+.cal-wrap{padding:.5rem 1rem .5rem}
+.day-labels{display:grid;grid-template-columns:repeat(7,1fr);text-align:center;padding:8px 0 4px}
+.day-labels span{font-size:11px;font-weight:600;color:#888}
+.day-labels span:first-child{color:#e24b4a}
+.day-labels span:last-child{color:#378ADD}
+.cells{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+.cell{min-height:75px;border-radius:8px;padding:5px 6px;cursor:pointer;border:1px solid transparent;transition:background .1s}
+.cell:hover{background:#f8f8f8;border-color:#e5e5e5}
+.cell.today{border:2px solid #1a1a1a}
+.cell.sel{background:#f0f0f0;border-color:#999}
+.cell.other .dnum{color:#ccc}
+.dnum{font-size:12px;font-weight:600;margin-bottom:3px}
+.cell.sun .dnum{color:#e24b4a}
+.cell.sat .dnum{color:#378ADD}
+.ctrade{font-size:10px;padding:1px 5px;border-radius:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:2px}
+.ctrade.buy{background:#E1F5EE;color:#0a5e3f}
+.ctrade.sell{background:#FEECEC;color:#9b2222}
+.more{font-size:10px;color:#999}
+.panel{border-top:1px solid #e5e5e5;padding:1.25rem 1.5rem}
+.ph{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem}
+.pt{font-size:15px;font-weight:600}
+.pc{background:none;border:none;font-size:22px;cursor:pointer;color:#999;line-height:1;padding:0 4px}
+.pc:hover{color:#333}
+.dt-item{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:#f9f9f9;border-radius:8px;margin-bottom:6px;border:1px solid #eee}
+.dbadge{font-size:11px;padding:2px 8px;border-radius:10px;font-weight:600;white-space:nowrap;margin-top:1px}
+.dbadge.buy{background:#E1F5EE;color:#0a5e3f}
+.dbadge.sell{background:#FEECEC;color:#9b2222}
+.dname{font-size:13px;font-weight:600}
+.ddetail{font-size:12px;color:#666;margin-top:2px}
+.dmemo{font-size:11px;color:#888;font-style:italic;margin-top:3px}
+.ddel{margin-left:auto;background:none;border:none;color:#e24b4a;cursor:pointer;font-size:12px;padding:2px 6px;white-space:nowrap}
+.ddel:hover{text-decoration:underline}
+.form-sep{border-top:1px solid #e5e5e5;padding-top:1rem;margin-top:.75rem}
+.form-sep-title{font-size:13px;font-weight:600;color:#555;margin-bottom:12px}
+.fg2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.fg{display:flex;flex-direction:column;gap:4px}
+.fg.full{grid-column:1/-1}
+.fg label{font-size:11px;color:#666;font-weight:500}
+input,select,textarea{font-size:13px;border:1px solid #ddd;border-radius:8px;padding:8px 10px;background:#fff;color:#1a1a1a;width:100%}
+input:focus,select:focus,textarea:focus{outline:none;border-color:#999}
+textarea{resize:vertical;min-height:60px}
+.brow{display:flex;justify-content:flex-end;gap:8px;margin-top:12px}
+.btn{padding:8px 18px;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer}
+.btn-p{background:#1a1a1a;color:#fff;border:none}
+.btn-p:hover{background:#333}
+.btn-g{background:#fff;border:1px solid #ddd;color:#666}
+.btn-g:hover{background:#f5f5f5}
+.fmsg{font-size:12px;text-align:right;margin-top:6px;min-height:18px}
+.list-wrap{padding:1rem 1.5rem 2rem}
+.lfilters{display:flex;gap:8px;margin-bottom:14px}
+.lfilters select{font-size:12px;padding:5px 8px;width:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:8px 10px;font-size:11px;font-weight:600;color:#888;border-bottom:1px solid #e5e5e5;text-transform:uppercase;letter-spacing:.3px}
+td{padding:8px 10px;border-bottom:1px solid #f0f0f0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600}
+.badge.buy{background:#E1F5EE;color:#0a5e3f}
+.badge.sell{background:#FEECEC;color:#9b2222}
+.smetrics{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;padding:1.25rem 1.5rem 0}
+.metric{background:#f9f9f9;border-radius:8px;padding:1rem;border:1px solid #eee}
+.ml{font-size:11px;color:#888;margin-bottom:4px;font-weight:500}
+.mv{font-size:20px;font-weight:600}
+.profit{color:#1D9E75}.loss{color:#e24b4a}
+.catsec{padding:1rem 1.5rem 2rem}
+.sec-title{font-size:13px;font-weight:600;color:#666;margin-bottom:10px;margin-top:16px}
+.ccard{background:#f9f9f9;border-radius:12px;padding:1rem 1.25rem;margin-bottom:10px;border:1px solid #eee}
+.cname{font-size:14px;font-weight:600;margin-bottom:10px}
+.crow{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.ci label{font-size:10px;color:#888;font-weight:500}
+.cv{font-size:13px;font-weight:600;margin-top:3px}
+.bar{height:6px;background:#e5e5e5;border-radius:3px;margin-top:10px;overflow:hidden}
+.bfill{height:100%;border-radius:3px;background:#1D9E75;transition:width .4s}
+.bfill.neg{background:#e24b4a}
+.empty{text-align:center;padding:3rem;color:#aaa;font-size:13px}
+@media(max-width:600px){
+  .fg2{grid-template-columns:1fr}
+  .smetrics{grid-template-columns:1fr 1fr}
+  .crow{grid-template-columns:1fr 1fr}
+  .cal-header{padding:.75rem 1rem}
+  .topbar,.panel,.list-wrap,.catsec{padding-left:1rem;padding-right:1rem}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <span class="topbar-title">📈 주식 일기장</span>
+    <div class="ttabs">
+      <button class="ttab active" onclick="showView('cal')">캘린더</button>
+      <button class="ttab" onclick="showView('list')">내역</button>
+      <button class="ttab" onclick="showView('stats')">통계</button>
+    </div>
+  </div>
+
+  <!-- 캘린더 뷰 -->
+  <div id="v-cal">
+    <div class="cal-header">
+      <div class="cal-nav">
+        <button class="nav-btn" onclick="moveM(-1)">&#8249;</button>
+        <span class="cal-month" id="cal-lbl"></span>
+        <button class="nav-btn" onclick="moveM(1)">&#8250;</button>
+      </div>
+      <div class="legend">
+        <span><span class="dot" style="background:#1D9E75"></span>매입</span>
+        <span><span class="dot" style="background:#e24b4a"></span>매도</span>
+      </div>
+    </div>
+    <div class="cal-wrap">
+      <div class="day-labels">
+        <span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span>
+      </div>
+      <div class="cells" id="cells"></div>
+    </div>
+    <div id="panel" style="display:none">
+      <div class="panel">
+        <div class="ph">
+          <span class="pt" id="panel-title"></span>
+          <button class="pc" onclick="closePanel()">&#215;</button>
+        </div>
+        <div id="day-list"></div>
+        <div class="form-sep">
+          <div class="form-sep-title">새 거래 등록</div>
+          <div class="fg2">
+            <div class="fg"><label>종목명</label><input id="fn" type="text" placeholder="예: 삼성전자"></div>
+            <div class="fg"><label>카테고리</label>
+              <select id="fc">
+                <option>국내주식</option><option>미국주식</option><option>ETF</option><option>코인</option><option>기타</option>
+              </select>
+            </div>
+            <div class="fg"><label>거래 유형</label>
+              <select id="ft"><option value="매입">매입</option><option value="매도">매도</option></select>
+            </div>
+            <div class="fg"><label>수량 (주)</label><input id="fq" type="number" min="0" step="any" placeholder="0"></div>
+            <div class="fg"><label>단가 (원)</label><input id="fp" type="number" min="0" step="any" placeholder="0"></div>
+            <div class="fg"><label>수수료 (원, 선택)</label><input id="ff" type="number" min="0" step="any" placeholder="0"></div>
+            <div class="fg full"><label>메모</label><textarea id="fm" placeholder="매매 이유, 목표가, 시장 상황 등..."></textarea></div>
+          </div>
+          <div class="brow">
+            <button class="btn btn-g" onclick="closePanel()">취소</button>
+            <button class="btn btn-p" onclick="addTrade()">등록하기</button>
+          </div>
+          <div class="fmsg" id="fmsg"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 내역 뷰 -->
+  <div id="v-list" style="display:none">
+    <div class="list-wrap">
+      <div class="lfilters">
+        <select id="lfc" onchange="renderList()">
+          <option value="">전체 카테고리</option>
+          <option>국내주식</option><option>미국주식</option><option>ETF</option><option>코인</option><option>기타</option>
+        </select>
+        <select id="lft" onchange="renderList()">
+          <option value="">전체 유형</option><option value="매입">매입</option><option value="매도">매도</option>
+        </select>
+      </div>
+      <table>
+        <thead><tr>
+          <th>날짜</th><th>종목</th><th>카테고리</th><th>유형</th>
+          <th>수량</th><th>단가</th><th>총액</th><th>메모</th><th></th>
+        </tr></thead>
+        <tbody id="ltbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 통계 뷰 -->
+  <div id="v-stats" style="display:none">
+    <div class="smetrics">
+      <div class="metric"><div class="ml">총 매입금액</div><div class="mv" id="sb">0원</div></div>
+      <div class="metric"><div class="ml">총 매도금액</div><div class="mv" id="ss">0원</div></div>
+      <div class="metric"><div class="ml">실현 손익</div><div class="mv" id="sp">0원</div></div>
+    </div>
+    <div class="catsec">
+      <div class="sec-title">카테고리별 현황</div>
+      <div id="cat-cards"></div>
+      <div class="sec-title">종목별 손익</div>
+      <table>
+        <thead><tr><th>종목</th><th>카테고리</th><th>매입</th><th>매도</th><th>손익</th><th>수익률</th></tr></thead>
+        <tbody id="stbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+const KEY = 'stock_diary_v2';
+let trades = [];
+try { trades = JSON.parse(localStorage.getItem(KEY) || '[]'); } catch(e) {}
+let cy = new Date().getFullYear(), cm = new Date().getMonth(), sel = null;
+const todayStr = new Date().toISOString().slice(0,10);
+
+function save() { try { localStorage.setItem(KEY, JSON.stringify(trades)); } catch(e) {} }
+function fmt(n) { return Number(n).toLocaleString('ko-KR') + '원'; }
+function fmtN(n) { return Number(n).toLocaleString('ko-KR'); }
+
+function showView(v) {
+  ['cal','list','stats'].forEach(id => {
+    document.getElementById('v-'+id).style.display = id===v ? '' : 'none';
+  });
+  document.querySelectorAll('.ttab').forEach((el,i) => {
+    el.classList.toggle('active', ['cal','list','stats'][i] === v);
+  });
+  if(v==='list') renderList();
+  if(v==='stats') renderStats();
+  if(v==='cal') renderCal();
+}
+
+function moveM(d) {
+  cm += d;
+  if(cm > 11) { cm = 0; cy++; }
+  if(cm < 0) { cm = 11; cy--; }
+  closePanel(); renderCal();
+}
+
+function renderCal() {
+  document.getElementById('cal-lbl').textContent = `${cy}년 ${cm+1}월`;
+  const first = new Date(cy, cm, 1);
+  const last = new Date(cy, cm+1, 0);
+  const sd = first.getDay();
+  const map = {};
+  trades.forEach(t => { if(!map[t.date]) map[t.date]=[]; map[t.date].push(t); });
+  const cells = document.getElementById('cells');
+  cells.innerHTML = '';
+  const total = Math.ceil((sd + last.getDate()) / 7) * 7;
+  for(let i = 0; i < total; i++) {
+    const dn = i - sd + 1;
+    const d = new Date(cy, cm, dn);
+    const ds = d.toISOString().slice(0,10);
+    const isCur = d.getMonth() === cm;
+    const isToday = ds === todayStr;
+    const isSun = d.getDay() === 0;
+    const isSat = d.getDay() === 6;
+    const isSel = ds === sel;
+    const c = document.createElement('div');
+    c.className = 'cell' + (isCur?'':' other') + (isToday?' today':'') + (isSel?' sel':'') + (isSun?' sun':'') + (isSat?' sat':'');
+    c.onclick = () => selectDate(ds);
+    const dt = map[ds] || [];
+    let html = `<div class="dnum">${d.getDate()}</div>`;
+    dt.slice(0,2).forEach(t => {
+      html += `<div class="ctrade ${t.type==='매입'?'buy':'sell'}">${t.name}</div>`;
+    });
+    if(dt.length > 2) html += `<div class="more">+${dt.length-2}건</div>`;
+    c.innerHTML = html;
+    cells.appendChild(c);
+  }
+}
+
+function selectDate(ds) {
+  sel = ds;
+  ['fn','fq','fp','ff','fm'].forEach(id => { document.getElementById(id).value = ''; });
+  document.getElementById('fmsg').textContent = '';
+  const d = new Date(ds);
+  document.getElementById('panel-title').textContent = `${d.getFullYear()}년 ${d.getMonth()+1}월 ${d.getDate()}일`;
+  renderDayList(ds);
+  document.getElementById('panel').style.display = '';
+  renderCal();
+  setTimeout(() => {
+    document.getElementById('panel').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, 60);
+}
+
+function renderDayList(ds) {
+  const dl = document.getElementById('day-list');
+  const dt = trades.filter(t => t.date === ds);
+  if(!dt.length) { dl.innerHTML = ''; return; }
+  dl.innerHTML = dt.map(t => `
+    <div class="dt-item">
+      <span class="dbadge ${t.type==='매입'?'buy':'sell'}">${t.type}</span>
+      <div>
+        <div class="dname">${t.name} <span style="font-size:11px;color:#888;font-weight:400">${t.cat}</span></div>
+        <div class="ddetail">${fmtN(t.qty)}주 × ${fmtN(t.price)}원 = ${fmt(t.qty*t.price)}</div>
+        ${t.memo ? `<div class="dmemo">${t.memo}</div>` : ''}
+      </div>
+      <button class="ddel" onclick="del(${t.id})">삭제</button>
+    </div>`).join('');
+}
+
+function closePanel() {
+  sel = null;
+  document.getElementById('panel').style.display = 'none';
+  renderCal();
+}
+
+function addTrade() {
+  if(!sel) return;
+  const name = document.getElementById('fn').value.trim();
+  const cat = document.getElementById('fc').value;
+  const type = document.getElementById('ft').value;
+  const qty = parseFloat(document.getElementById('fq').value) || 0;
+  const price = parseFloat(document.getElementById('fp').value) || 0;
+  const fee = parseFloat(document.getElementById('ff').value) || 0;
+  const memo = document.getElementById('fm').value.trim();
+  const msg = document.getElementById('fmsg');
+  if(!name || qty <= 0 || price <= 0) {
+    msg.style.color = '#e24b4a'; msg.textContent = '종목명, 수량, 단가를 입력해주세요.'; return;
+  }
+  trades.push({ id: Date.now(), name, cat, type, date: sel, qty, price, fee, memo });
+  trades.sort((a,b) => b.date.localeCompare(a.date));
+  save();
+  msg.style.color = '#1D9E75'; msg.textContent = '✓ 등록되었습니다.';
+  ['fn','fq','fp','ff','fm'].forEach(id => { document.getElementById(id).value = ''; });
+  renderDayList(sel); renderCal();
+  setTimeout(() => { msg.textContent = ''; }, 2000);
+}
+
+function del(id) {
+  if(!confirm('삭제하시겠습니까?')) return;
+  trades = trades.filter(t => t.id !== id);
+  save();
+  if(sel) renderDayList(sel);
+  renderCal();
+}
+
+function renderList() {
+  const cf = document.getElementById('lfc').value;
+  const tf = document.getElementById('lft').value;
+  const list = trades.filter(t => (cf ? t.cat===cf : true) && (tf ? t.type===tf : true));
+  const tb = document.getElementById('ltbody');
+  if(!list.length) { tb.innerHTML = `<tr><td colspan="9" class="empty">거래 내역이 없습니다</td></tr>`; return; }
+  tb.innerHTML = list.map(t => `<tr>
+    <td>${t.date}</td>
+    <td style="font-weight:600">${t.name}</td>
+    <td style="color:#888">${t.cat}</td>
+    <td><span class="badge ${t.type==='매입'?'buy':'sell'}">${t.type}</span></td>
+    <td>${fmtN(t.qty)}</td>
+    <td>${fmtN(t.price)}</td>
+    <td>${fmt(t.qty*t.price)}</td>
+    <td style="color:#888;font-size:12px;max-width:120px" title="${t.memo}">${t.memo||'-'}</td>
+    <td><button style="background:none;border:none;color:#e24b4a;cursor:pointer;font-size:12px" onclick="del(${t.id})">삭제</button></td>
+  </tr>`).join('');
+}
+
+function renderStats() {
+  const bt = trades.filter(t=>t.type==='매입').reduce((s,t)=>s+t.qty*t.price+t.fee, 0);
+  const st = trades.filter(t=>t.type==='매도').reduce((s,t)=>s+t.qty*t.price-t.fee, 0);
+  const pl = st - bt;
+  document.getElementById('sb').textContent = fmt(bt);
+  document.getElementById('ss').textContent = fmt(st);
+  const pe = document.getElementById('sp');
+  pe.textContent = (pl>=0?'+':'') + fmt(pl);
+  pe.className = 'mv ' + (pl>=0?'profit':'loss');
+
+  const cats = [...new Set(trades.map(t=>t.cat))];
+  const cd = document.getElementById('cat-cards');
+  if(!cats.length) { cd.innerHTML = `<div class="empty">데이터가 없습니다</div>`; }
+  else cd.innerHTML = cats.map(cat => {
+    const its = trades.filter(t=>t.cat===cat);
+    const b = its.filter(t=>t.type==='매입').reduce((s,t)=>s+t.qty*t.price+t.fee, 0);
+    const s = its.filter(t=>t.type==='매도').reduce((s,t)=>s+t.qty*t.price-t.fee, 0);
+    const p = s - b, rate = b>0 ? ((p/b)*100).toFixed(1) : 0, bw = Math.min(Math.abs(rate), 100);
+    return `<div class="ccard">
+      <div class="cname">${cat}</div>
+      <div class="crow">
+        <div class="ci"><label>매입</label><div class="cv">${fmt(b)}</div></div>
+        <div class="ci"><label>매도</label><div class="cv">${fmt(s)}</div></div>
+        <div class="ci"><label>손익</label><div class="cv ${p>=0?'profit':'loss'}">${p>=0?'+':''}${fmt(p)}</div></div>
+        <div class="ci"><label>수익률</label><div class="cv ${p>=0?'profit':'loss'}">${rate}%</div></div>
+      </div>
+      <div class="bar"><div class="bfill ${p<0?'neg':''}" style="width:${bw}%"></div></div>
+    </div>`;
+  }).join('');
+
+  const stocks = [...new Set(trades.map(t=>t.name))];
+  const stb = document.getElementById('stbody');
+  if(!stocks.length) { stb.innerHTML = `<tr><td colspan="6" class="empty">데이터 없음</td></tr>`; return; }
+  stb.innerHTML = stocks.map(name => {
+    const its = trades.filter(t=>t.name===name);
+    const b = its.filter(t=>t.type==='매입').reduce((s,t)=>s+t.qty*t.price+t.fee, 0);
+    const s = its.filter(t=>t.type==='매도').reduce((s,t)=>s+t.qty*t.price-t.fee, 0);
+    const p = s - b, rate = b>0 ? ((p/b)*100).toFixed(1) : '-';
+    return `<tr>
+      <td style="font-weight:600">${name}</td>
+      <td style="color:#888">${its[0].cat}</td>
+      <td>${fmt(b)}</td><td>${fmt(s)}</td>
+      <td class="${p>=0?'profit':'loss'}" style="font-weight:600">${p>=0?'+':''}${fmt(p)}</td>
+      <td class="${p>=0?'profit':'loss'}">${rate}%</td>
+    </tr>`;
+  }).join('');
+}
+
+renderCal();
+</script>
+</body>
+</html>
