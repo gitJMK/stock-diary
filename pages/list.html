@@ -138,7 +138,7 @@ function logout() { Session.clear(); location.href = '../index.html'; }
 function renderSummary() {
   const bt = trades.filter(t=>t.type==='매입').reduce((s,t)=>s+t.qty*t.price+(t.fee||0),0);
   const st = trades.filter(t=>t.type==='매도').reduce((s,t)=>s+t.qty*t.price-(t.fee||0),0);
-  const pl = st - bt;
+  const pl = TradeUtils.getRealizedPL(trades).total;
   document.getElementById('summary-bar').innerHTML = `
     <span>총 거래 <strong>${trades.length}건</strong></span>
     <span>매입 <strong>${TradeUtils.fmt(bt)}</strong></span>

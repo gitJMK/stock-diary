@@ -69,6 +69,48 @@ const TradeUtils = {
       .map(h => ({...h, avgPrice: h.qty > 0 ? Math.round(h.totalCost / h.qty) : 0}));
   },
 
+  // FIFO 실현손익 계산
+  getRealizedPL(trades) {
+    const sorted = [...trades].sort((a,b) => a.date.localeCompare(b.date) || a.id - b.id);
+    const stockMap = {};
+    sorted.forEach(t => {
+      const key = t.code || t.name;
+      if (!stockMap[key]) stockMap[key] = {name:t.name, code:t.code||'', cat:t.cat, queue:[], realizedPL:0, soldQty:0, costBasis:0};
+      const s = stockMap[key];
+      if (t.type === '매입') {
+        const unitCost = (t.qty * t.price + (t.fee||0)) / t.qty;
+        s.queue.push({qty:t.qty, unitCost});
+      } else {
+        const unitProceeds = (t.qty * t.price - (t.fee||0)) / t.qty;
+        let remaining = t.qty;
+        while (remaining > 0 && s.queue.length > 0) {
+          const lot = s.queue[0];
+          const matched = Math.min(remaining, lot.qty);
+          s.costBasis += matched * lot.unitCost;
+          s.realizedPL += matched * (unitProceeds - lot.unitCost);
+          lot.qty -= matched;
+          remaining -= matched;
+          if (lot.qty === 0) s.queue.shift();
+        }
+        s.soldQty += t.qty;
+      }
+    });
+    const byStock = {};
+    let total = 0;
+    Object.entries(stockMap).forEach(([key, s]) => {
+      const holdingQty = s.queue.reduce((sum, lot) => sum + lot.qty, 0);
+      byStock[key] = {
+        name:s.name, code:s.code, cat:s.cat,
+        realizedPL: Math.round(s.realizedPL),
+        soldQty: s.soldQty,
+        costBasis: Math.round(s.costBasis),
+        holding: holdingQty > 0,
+      };
+      total += s.realizedPL;
+    });
+    return {total: Math.round(total), byStock};
+  },
+
   // CSV 내보내기
   exportCSV(trades) {
     if (!trades.length) { alert('내보낼 거래 데이터가 없습니다.'); return; }

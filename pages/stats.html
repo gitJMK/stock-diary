@@ -9,7 +9,11 @@
 .smetrics{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;padding:1.25rem 1.5rem 0}
 .metric{background:#f9f9f9;border-radius:8px;padding:1rem;border:1px solid #eee}
 .ml{font-size:11px;color:#888;margin-bottom:4px;font-weight:500}
+.metric.highlight{background:#1a1a1a;border-color:#1a1a1a}
+.metric.highlight .ml{color:#aaa}
+.metric.highlight .mv{color:#fff}
 .mv{font-size:20px;font-weight:600}
+.mv.small{font-size:16px}
 .profit{color:#1D9E75}.loss{color:#e24b4a}
 
 /* 현재가 */
@@ -179,11 +183,24 @@
     </div>
   </div>
 
-  <!-- 요약 -->
+  <!-- 총자산 요약 -->
   <div class="smetrics">
-    <div class="metric"><div class="ml">총 매입금액</div><div class="mv" id="sb">0원</div></div>
-    <div class="metric"><div class="ml">총 매도금액</div><div class="mv" id="ss">0원</div></div>
-    <div class="metric"><div class="ml">실현 손익</div><div class="mv" id="sp">0원</div></div>
+    <div class="metric highlight">
+      <div class="ml">총자산</div>
+      <div class="mv small" id="s-total">0원</div>
+    </div>
+    <div class="metric">
+      <div class="ml">예수금</div>
+      <div class="mv small" id="s-deposit">0원</div>
+    </div>
+    <div class="metric">
+      <div class="ml">매입금액</div>
+      <div class="mv small" id="sb">0원</div>
+    </div>
+    <div class="metric">
+      <div class="ml">평가금액</div>
+      <div class="mv small" id="s-eval">0원</div>
+    </div>
   </div>
 
   <!-- 현재가 -->
@@ -283,15 +300,51 @@ function logout() { Session.clear(); location.href = '../index.html'; }
 function doExportCSV() { TradeUtils.exportCSV(trades); log('CSV 내보내기 완료','ok'); }
 
 // ── 통계 렌더 ────────────────────────────────────────────
-function renderStats() {
-  const bt = trades.filter(t=>t.type==='매입').reduce((s,t)=>s+t.qty*t.price+(t.fee||0),0);
-  const st = trades.filter(t=>t.type==='매도').reduce((s,t)=>s+t.qty*t.price-(t.fee||0),0);
-  const pl = st - bt;
+function calcEvalAmount() {
+  const holdings = TradeUtils.getHoldings(trades);
+  return holdings.reduce((sum, h) => {
+    const pc = h.code && priceCache[h.code];
+    return sum + (pc ? pc.price * h.qty : h.avgPrice * h.qty);
+  }, 0);
+}
+
+function renderSummaryMetrics() {
+  deposit = Storage.getDeposit(userId);
+  const holdings = TradeUtils.getHoldings(trades);
+  const bt = trades.filter(t=>t.type==='매입').reduce((s,t)=>s+t.qty*t.price+(t.fee||0), 0);
+  const evalAmt = calcEvalAmount();
+  const total = deposit + evalAmt;
+
+  const holdingCost = holdings.reduce((s,h) => s + h.avgPrice * h.qty, 0);
+  const evalPL = evalAmt - holdingCost;
+  const evalPLRate = holdingCost > 0 ? (evalPL / holdingCost * 100).toFixed(2) : null;
+  const totalPLColor = evalPL >= 0 ? '#1D9E75' : '#e24b4a';
+  const hasPriceData = holdings.some(h => h.code && priceCache[h.code]);
+
+  document.getElementById('s-deposit').textContent = TradeUtils.fmt(deposit);
   document.getElementById('sb').textContent = TradeUtils.fmt(bt);
-  document.getElementById('ss').textContent = TradeUtils.fmt(st);
-  const pe = document.getElementById('sp');
-  pe.textContent = (pl>=0?'+':'') + TradeUtils.fmt(pl);
-  pe.className = 'mv ' + (pl>=0?'profit':'loss');
+
+  const evalEl = document.getElementById('s-eval');
+  evalEl.innerHTML = TradeUtils.fmt(evalAmt) +
+    (hasPriceData && evalPLRate !== null
+      ? `<div style="font-size:11px;margin-top:4px;color:${totalPLColor};font-weight:500">
+          ${evalPL>=0?'+':''}${TradeUtils.fmt(evalPL)}<br>
+          <span style="font-size:10px">${evalPL>=0?'+':''}${evalPLRate}%</span>
+        </div>`
+      : `<div style="font-size:10px;color:#ccc;margin-top:4px">시세 갱신 필요</div>`);
+
+  const totalEl = document.getElementById('s-total');
+  totalEl.innerHTML = TradeUtils.fmt(total) +
+    (hasPriceData && evalPLRate !== null
+      ? `<div style="font-size:11px;margin-top:4px;color:#aaa;font-weight:500">
+          <span style="color:${totalPLColor}">${evalPL>=0?'+':''}${TradeUtils.fmt(evalPL)}</span><br>
+          <span style="font-size:10px;color:${totalPLColor}">${evalPL>=0?'+':''}${evalPLRate}%</span>
+        </div>`
+      : '');
+}
+
+function renderStats() {
+  renderSummaryMetrics();
   renderPriceCards();
   renderMonthlyChart();
   renderCatCards();
@@ -384,23 +437,40 @@ function renderCatCards() {
 }
 
 function renderStockTable() {
-  const stocks=[...new Set(trades.map(t=>t.name))];
-  const stb=document.getElementById('stbody');
-  if(!stocks.length){stb.innerHTML=`<tr><td colspan="7" class="empty">데이터 없음</td></tr>`;return;}
-  stb.innerHTML=stocks.map(name=>{
-    const its=trades.filter(t=>t.name===name);
-    const code=its.find(t=>t.code)?.code||'';
-    const b=its.filter(t=>t.type==='매입').reduce((s,t)=>s+t.qty*t.price+(t.fee||0),0);
-    const s=its.filter(t=>t.type==='매도').reduce((s,t)=>s+t.qty*t.price-(t.fee||0),0);
-    const p=s-b, rate=b>0?((p/b)*100).toFixed(1):'-';
-    const pc=code&&priceCache[code];
-    const holdQty=its.filter(t=>t.type==='매입').reduce((s,t)=>s+t.qty,0)-its.filter(t=>t.type==='매도').reduce((s,t)=>s+t.qty,0);
-    const evalStr=pc&&holdQty>0?`<span style="font-size:11px;color:#888">현재가 ${TradeUtils.fmtN(pc.price)}원</span>`:'';
+  const rpl = TradeUtils.getRealizedPL(trades);
+  const stb = document.getElementById('stbody');
+  const keys = Object.keys(rpl.byStock);
+  if (!keys.length) { stb.innerHTML=`<tr><td colspan="7" class="empty">데이터 없음</td></tr>`; return; }
+  stb.innerHTML = keys.map(key => {
+    const r = rpl.byStock[key];
+    const its = trades.filter(t=>(t.code||t.name)===key);
+    const b = its.filter(t=>t.type==='매입').reduce((s,t)=>s+t.qty*t.price+(t.fee||0),0);
+    const sellTotal = its.filter(t=>t.type==='매도').reduce((s,t)=>s+t.qty*t.price-(t.fee||0),0);
+    const pc = r.code && priceCache[r.code];
+    const holdQty = its.reduce((s,t)=>t.type==='매입'?s+t.qty:s-t.qty, 0);
+    const evalStr = pc && holdQty > 0
+      ? `<span style="font-size:11px;color:#888">현재가 ${TradeUtils.fmtN(pc.price)}원</span>` : '';
+    const holdingBadge = r.holding && r.soldQty > 0
+      ? `<span style="font-size:10px;color:#888;background:#f0f0f0;padding:1px 5px;border-radius:4px;margin-left:4px">보유중</span>` : '';
+
+    if (r.soldQty === 0) {
+      return `<tr>
+        <td style="font-weight:600">${r.name} ${evalStr}</td>
+        <td style="color:#aaa;font-size:12px">${r.code||'-'}</td>
+        <td style="color:#888">${r.cat}</td>
+        <td>${TradeUtils.fmt(b)}</td>
+        <td style="color:#ccc">-</td>
+        <td colspan="2" style="color:#aaa;font-size:12px">보유중</td>
+      </tr>`;
+    }
+    const p = r.realizedPL;
+    const rate = r.costBasis > 0 ? ((p / r.costBasis) * 100).toFixed(1) : '-';
     return `<tr>
-      <td style="font-weight:600">${name} ${evalStr}</td>
-      <td style="color:#aaa;font-size:12px">${code||'-'}</td>
-      <td style="color:#888">${its[0].cat}</td>
-      <td>${TradeUtils.fmt(b)}</td><td>${TradeUtils.fmt(s)}</td>
+      <td style="font-weight:600">${r.name}${holdingBadge} ${evalStr}</td>
+      <td style="color:#aaa;font-size:12px">${r.code||'-'}</td>
+      <td style="color:#888">${r.cat}</td>
+      <td>${TradeUtils.fmt(b)}</td>
+      <td>${TradeUtils.fmt(sellTotal)}</td>
       <td class="${p>=0?'profit':'loss'}" style="font-weight:600">${p>=0?'+':''}${TradeUtils.fmt(p)}</td>
       <td class="${p>=0?'profit':'loss'}">${rate}%</td>
     </tr>`;
