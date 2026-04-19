@@ -2,18 +2,14 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>통계 — 주식 일기장</title>
 <link rel="stylesheet" href="../css/common.css">
 <style>
-.smetrics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding:1.25rem 1.5rem 0}
+.smetrics{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;padding:1.25rem 1.5rem 0}
 .metric{background:#f9f9f9;border-radius:8px;padding:1rem;border:1px solid #eee}
-.metric.highlight{background:#1a1a1a;border-color:#1a1a1a}
-.metric.highlight .ml{color:#aaa}
-.metric.highlight .mv{color:#fff}
 .ml{font-size:11px;color:#888;margin-bottom:4px;font-weight:500}
 .mv{font-size:20px;font-weight:600}
-.mv.small{font-size:16px}
 .profit{color:#1D9E75}.loss{color:#e24b4a}
 
 /* 현재가 */
@@ -55,28 +51,11 @@
 .settings-label{font-size:13px;font-weight:500}
 .settings-sub{font-size:11px;color:#aaa;margin-top:2px}
 
-/* 계산기 */
-.calc-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:600;display:flex;align-items:flex-end;justify-content:center}
-.calc-modal{background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:400px;padding:1.5rem 1.5rem 2rem}
-.calc-title{font-size:15px;font-weight:600;margin-bottom:4px}
-.calc-sub{font-size:12px;color:#888;margin-bottom:1rem}
-.calc-display{background:#f5f5f5;border-radius:10px;padding:12px 16px;margin-bottom:12px;text-align:right}
-.calc-expr{font-size:12px;color:#aaa;min-height:16px;margin-bottom:2px}
-.calc-val{font-size:26px;font-weight:600;letter-spacing:-0.5px}
-.calc-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}
-.ck{padding:14px 0;font-size:16px;font-weight:500;border:none;border-radius:10px;cursor:pointer;background:#f5f5f5;color:#1a1a1a}
-.ck:active{transform:scale(.95)}
-.ck.op{background:#e8e8e8}.ck.eq{background:#1a1a1a;color:#fff}.ck.zero{grid-column:span 2}
-.calc-confirm{width:100%;padding:13px;background:#1a1a1a;color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:500;cursor:pointer}
-.calc-confirm:hover{background:#333}
-.calc-cancel{width:100%;padding:10px;background:none;border:none;color:#888;font-size:13px;cursor:pointer;margin-top:6px}
-
 @media(max-width:600px){
   .smetrics{grid-template-columns:1fr 1fr}
   .crow{grid-template-columns:1fr 1fr}
   .price-cards{grid-template-columns:1fr 1fr}
   .catsec,.price-section,.smetrics,.settings-section{padding-left:1rem;padding-right:1rem}
-  .metric.highlight{grid-column:1/-1}
 }
 </style>
 </head>
@@ -92,6 +71,59 @@
     <button class="log-clear" onclick="clearLog()">전체 삭제</button>
   </div>
   <div class="log-list" id="log-list"><div class="log-empty">아직 로그가 없습니다</div></div>
+</div>
+
+<!-- 설정 팝업 모달 -->
+<div class="modal-overlay" id="settings-modal" style="display:none">
+  <div class="modal">
+    <div class="modal-title">⚙ 설정</div>
+    <div class="modal-sub">앱 설정을 관리하세요</div>
+    <div style="display:flex;flex-direction:column;gap:0">
+      <div class="settings-row">
+        <div>
+          <div class="settings-label">예수금</div>
+          <div class="settings-sub">금액 입력 후 추가 버튼을 누르세요</div>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center">
+          <input type="number" id="deposit-input" min="0" step="1" placeholder="추가 금액"
+            style="width:110px;font-size:13px;padding:6px 10px;border:1px solid #ddd;border-radius:8px;text-align:right">
+          <button onclick="openCalc()" style="padding:6px 10px;font-size:14px;background:#f5f5f5;border:1px solid #ddd;border-radius:8px;cursor:pointer">🧮</button>
+          <button onclick="addDepositAmount()" style="padding:6px 12px;font-size:12px;background:#1a1a1a;color:#fff;border:none;border-radius:8px;cursor:pointer">추가</button>
+        </div>
+      </div>
+      <div class="settings-row">
+        <div>
+          <div class="settings-label">KIS API 연결</div>
+          <div class="settings-sub" id="api-status-sub2">미설정</div>
+        </div>
+        <button class="btn btn-g" style="font-size:12px;padding:6px 14px" onclick="closeSettingsModal();openApiModal()">설정</button>
+      </div>
+      <div class="settings-row">
+        <div>
+          <div class="settings-label">☁ 클라우드 동기화</div>
+          <div class="settings-sub">Cloudflare KV로 암호화 동기화</div>
+        </div>
+        <button class="btn btn-g" style="font-size:12px;padding:6px 14px" onclick="closeSettingsModal();openSyncModal()">동기화</button>
+      </div>
+      <div class="settings-row">
+        <div>
+          <div class="settings-label">CSV 내보내기</div>
+          <div class="settings-sub">전체 거래 데이터 다운로드</div>
+        </div>
+        <button class="btn btn-g" style="font-size:12px;padding:6px 14px" onclick="doExportCSV()">⬇ CSV</button>
+      </div>
+      <div class="settings-row">
+        <div>
+          <div class="settings-label">로그아웃</div>
+          <div class="settings-sub">현재 세션을 종료합니다</div>
+        </div>
+        <button class="btn" style="font-size:12px;padding:6px 14px;background:#fff;border:1px solid #e24b4a;color:#e24b4a" onclick="logout()">로그아웃</button>
+      </div>
+    </div>
+    <div class="modal-btns">
+      <button class="mbtn mbtn-g" onclick="closeSettingsModal()">닫기</button>
+    </div>
+  </div>
 </div>
 
 <!-- KIS API 설정 모달 -->
@@ -136,70 +168,22 @@
   </div>
 </div>
 
-<!-- 계산기 -->
-<div class="calc-overlay" id="calc-overlay" style="display:none" onclick="if(event.target===this)closeCalc()">
-  <div class="calc-modal">
-    <div class="calc-title">예수금 계산기</div>
-    <div class="calc-sub">계산 후 확인을 누르면 입력됩니다</div>
-    <div class="calc-display">
-      <div class="calc-expr" id="calc-expr"></div>
-      <div class="calc-val" id="calc-val">0</div>
-    </div>
-    <div class="calc-grid">
-      <button class="ck op" onclick="calcInput('C')">C</button>
-      <button class="ck op" onclick="calcInput('±')">±</button>
-      <button class="ck op" onclick="calcInput('%')">%</button>
-      <button class="ck op" onclick="calcInput('/')">÷</button>
-      <button class="ck" onclick="calcInput('7')">7</button><button class="ck" onclick="calcInput('8')">8</button><button class="ck" onclick="calcInput('9')">9</button>
-      <button class="ck op" onclick="calcInput('*')">×</button>
-      <button class="ck" onclick="calcInput('4')">4</button><button class="ck" onclick="calcInput('5')">5</button><button class="ck" onclick="calcInput('6')">6</button>
-      <button class="ck op" onclick="calcInput('-')">−</button>
-      <button class="ck" onclick="calcInput('1')">1</button><button class="ck" onclick="calcInput('2')">2</button><button class="ck" onclick="calcInput('3')">3</button>
-      <button class="ck op" onclick="calcInput('+')">+</button>
-      <button class="ck zero" onclick="calcInput('0')">0</button>
-      <button class="ck" onclick="calcInput('.')">.</button>
-      <button class="ck eq" onclick="calcInput('=')">=</button>
-    </div>
-    <button class="calc-confirm" onclick="confirmCalc()">확인 — 입력하기</button>
-    <button class="calc-cancel" onclick="closeCalc()">취소</button>
-  </div>
-</div>
-
 <div class="app">
   <div class="topbar">
-    <span class="topbar-title">📈 주식 일기장</span>
+    <span class="topbar-title">📈 주식 일기장 <span class="topbar-user" id="topbar-user"></span></span>
     <div class="topbar-right">
       <a class="ttab" href="calendar.html">캘린더</a>
       <a class="ttab" href="list.html">내역</a>
       <a class="ttab active" href="stats.html">통계</a>
-      <div class="user-btn-wrap">
-        <button class="user-btn" id="user-btn" onclick="toggleUserPopup()">👤</button>
-        <div class="user-popup" id="user-popup" style="display:none">
-          <div class="user-popup-name">👤 <span id="topbar-user"></span></div>
-          <button class="user-popup-btn" onclick="logout()">로그아웃</button>
-        </div>
-      </div>
+      <button class="api-btn" onclick="openSettingsModal()">설정</button>
     </div>
   </div>
 
-  <!-- 총자산 요약 -->
+  <!-- 요약 -->
   <div class="smetrics">
-    <div class="metric highlight">
-      <div class="ml">총자산</div>
-      <div class="mv small" id="s-total">0원</div>
-    </div>
-    <div class="metric">
-      <div class="ml">예수금</div>
-      <div class="mv small" id="s-deposit">0원</div>
-    </div>
-    <div class="metric">
-      <div class="ml">매입금액</div>
-      <div class="mv small" id="sb">0원</div>
-    </div>
-    <div class="metric">
-      <div class="ml">평가금액</div>
-      <div class="mv small" id="s-eval">0원</div>
-    </div>
+    <div class="metric"><div class="ml">총 매입금액</div><div class="mv" id="sb">0원</div></div>
+    <div class="metric"><div class="ml">총 매도금액</div><div class="mv" id="ss">0원</div></div>
+    <div class="metric"><div class="ml">실현 손익</div><div class="mv" id="sp">0원</div></div>
   </div>
 
   <!-- 현재가 -->
@@ -225,33 +209,15 @@
 
     <!-- 종목별 -->
     <div class="sec-title">종목별 손익</div>
-    <table style="border-collapse:separate;border-spacing:0">
-      <thead><tr>
-        <th style="width:90px">카테고리</th>
-        <th>종목</th>
-        <th style="width:120px;text-align:right">손익금액</th>
-        <th style="width:80px;text-align:right">손익%</th>
-      </tr></thead>
+    <table>
+      <thead><tr><th>종목</th><th>코드</th><th>카테고리</th><th>매입</th><th>매도</th><th>손익</th><th>수익률</th></tr></thead>
       <tbody id="stbody"></tbody>
     </table>
   </div>
 
   <!-- 설정 섹션 -->
-  <div class="settings-section">
+  <div class="settings-section" style="display:none">
     <div class="sec-title" style="margin-top:0;padding-top:1rem">⚙ 설정</div>
-    <div class="settings-row">
-      <div>
-        <div class="settings-label">예수금</div>
-        <div class="settings-sub">금액 입력 후 추가 버튼을 누르세요</div>
-      </div>
-      <div style="display:flex;gap:6px;align-items:center">
-        <input type="number" id="deposit-input" min="0" step="1"
-          placeholder="추가 금액"
-          style="width:110px;font-size:13px;padding:6px 10px;border:1px solid #ddd;border-radius:8px;text-align:right">
-        <button onclick="openCalc()" style="padding:6px 10px;font-size:14px;background:#f5f5f5;border:1px solid #ddd;border-radius:8px;cursor:pointer">🧮</button>
-        <button onclick="addDepositAmount()" style="padding:6px 12px;font-size:12px;background:#1a1a1a;color:#fff;border:none;border-radius:8px;cursor:pointer">추가</button>
-      </div>
-    </div>
     <div class="settings-row">
       <div>
         <div class="settings-label">KIS API 연결</div>
@@ -293,8 +259,14 @@ async function init() {
   deposit  = Storage.getDeposit(userId);
   updateApiStatusSub();
   renderStats();
-  log(`통계 로드 완료 (${trades.length}건)`, 'ok');
+  log(`자산 로드 완료 (${trades.length}건)`, 'ok');
 }
+
+function openSettingsModal() {
+  document.getElementById('api-status-sub2').textContent = apiCreds ? `연결됨 (${apiCreds.isPaper?'모의투자':'실전투자'})` : '미설정';
+  document.getElementById('settings-modal').style.display='flex';
+}
+function closeSettingsModal() { document.getElementById('settings-modal').style.display='none'; }
 
 function addDepositAmount() {
   const input = document.getElementById('deposit-input');
@@ -302,75 +274,24 @@ function addDepositAmount() {
   if (amount <= 0) { alert('추가할 금액을 입력해주세요.'); return; }
   Storage.addDeposit(userId, amount);
   input.value = '';
-  renderSummaryMetrics();
-  log(`예수금 추가: +${TradeUtils.fmt(amount)} → 잔액 ${TradeUtils.fmt(Storage.getDeposit(userId))}`, 'ok');
+  deposit = Storage.getDeposit(userId);
+  renderStats();
+  log(`예수금 추가: +${TradeUtils.fmt(amount)} → 잔액 ${TradeUtils.fmt(deposit)}`, 'ok');
 }
 
 function logout() { Session.clear(); location.href = '../index.html'; }
-function toggleUserPopup() {
-  const p = document.getElementById('user-popup');
-  p.style.display = p.style.display === 'none' ? '' : 'none';
-}
-document.addEventListener('click', e => {
-  if (!e.target.closest('.user-btn-wrap')) {
-    const p = document.getElementById('user-popup');
-    if (p) p.style.display = 'none';
-  }
-});
 function doExportCSV() { TradeUtils.exportCSV(trades); log('CSV 내보내기 완료','ok'); }
 
 // ── 통계 렌더 ────────────────────────────────────────────
-function calcEvalAmount() {
-  // 평가금액: 시세 있으면 현재가×보유수량, 없으면 매입금액 기준
-  const holdings = TradeUtils.getHoldings(trades);
-  return holdings.reduce((sum, h) => {
-    const pc = h.code && priceCache[h.code];
-    return sum + (pc ? pc.price * h.qty : h.avgPrice * h.qty);
-  }, 0);
-}
-
-function renderSummaryMetrics() {
-  deposit = Storage.getDeposit(userId);
-  const holdings = TradeUtils.getHoldings(trades);
-  const bt = trades.filter(t=>t.type==='매입').reduce((s,t)=>s+t.qty*t.price+(t.fee||0), 0);
-  const evalAmt = calcEvalAmount();
-  const total = deposit + evalAmt;
-
-  // 평가손익 = 평가금액 - 보유종목 매입원가
-  const holdingCost = holdings.reduce((s,h) => s + h.avgPrice * h.qty, 0);
-  const evalPL = evalAmt - holdingCost;
-  const evalPLRate = holdingCost > 0 ? (evalPL / holdingCost * 100).toFixed(2) : null;
-
-  // 총자산 손익 = 평가손익 기준
-  const totalPLColor = evalPL >= 0 ? '#1D9E75' : '#e24b4a';
-  const hasPriceData = holdings.some(h => h.code && priceCache[h.code]);
-
-  document.getElementById('s-deposit').textContent = TradeUtils.fmt(deposit);
-  document.getElementById('sb').textContent = TradeUtils.fmt(bt);
-
-  // 평가금액 + 손익
-  const evalEl = document.getElementById('s-eval');
-  evalEl.innerHTML = TradeUtils.fmt(evalAmt) +
-    (hasPriceData && evalPLRate !== null
-      ? `<div style="font-size:11px;margin-top:4px;color:${totalPLColor};font-weight:500">
-          ${evalPL>=0?'+':''}${TradeUtils.fmt(evalPL)}<br>
-          <span style="font-size:10px">${evalPL>=0?'+':''}${evalPLRate}%</span>
-        </div>`
-      : `<div style="font-size:10px;color:#ccc;margin-top:4px">시세 갱신 필요</div>`);
-
-  // 총자산 + 손익
-  const totalEl = document.getElementById('s-total');
-  totalEl.innerHTML = TradeUtils.fmt(total) +
-    (hasPriceData && evalPLRate !== null
-      ? `<div style="font-size:11px;margin-top:4px;color:#aaa;font-weight:500">
-          <span style="color:${totalPLColor}">${evalPL>=0?'+':''}${TradeUtils.fmt(evalPL)}</span><br>
-          <span style="font-size:10px;color:${totalPLColor}">${evalPL>=0?'+':''}${evalPLRate}%</span>
-        </div>`
-      : '');
-}
-
 function renderStats() {
-  renderSummaryMetrics();
+  const bt = trades.filter(t=>t.type==='매입').reduce((s,t)=>s+t.qty*t.price+(t.fee||0),0);
+  const st = trades.filter(t=>t.type==='매도').reduce((s,t)=>s+t.qty*t.price-(t.fee||0),0);
+  const pl = st - bt;
+  document.getElementById('sb').textContent = TradeUtils.fmt(bt);
+  document.getElementById('ss').textContent = TradeUtils.fmt(st);
+  const pe = document.getElementById('sp');
+  pe.textContent = (pl>=0?'+':'') + TradeUtils.fmt(pl);
+  pe.className = 'mv ' + (pl>=0?'profit':'loss');
   renderPriceCards();
   renderMonthlyChart();
   renderCatCards();
@@ -465,19 +386,23 @@ function renderCatCards() {
 function renderStockTable() {
   const stocks=[...new Set(trades.map(t=>t.name))];
   const stb=document.getElementById('stbody');
-  if(!stocks.length){stb.innerHTML=`<tr><td colspan="4" class="empty">데이터 없음</td></tr>`;return;}
+  if(!stocks.length){stb.innerHTML=`<tr><td colspan="7" class="empty">데이터 없음</td></tr>`;return;}
   stb.innerHTML=stocks.map(name=>{
     const its=trades.filter(t=>t.name===name);
-    const cat=its[0].cat;
+    const code=its.find(t=>t.code)?.code||'';
     const b=its.filter(t=>t.type==='매입').reduce((s,t)=>s+t.qty*t.price+(t.fee||0),0);
     const s=its.filter(t=>t.type==='매도').reduce((s,t)=>s+t.qty*t.price-(t.fee||0),0);
-    const p=s-b;
-    const rate=b>0?((p/b)*100).toFixed(1):'-';
+    const p=s-b, rate=b>0?((p/b)*100).toFixed(1):'-';
+    const pc=code&&priceCache[code];
+    const holdQty=its.filter(t=>t.type==='매입').reduce((s,t)=>s+t.qty,0)-its.filter(t=>t.type==='매도').reduce((s,t)=>s+t.qty,0);
+    const evalStr=pc&&holdQty>0?`<span style="font-size:11px;color:#888">현재가 ${TradeUtils.fmtN(pc.price)}원</span>`:'';
     return `<tr>
-      <td style="color:#888;font-size:12px">${cat}</td>
-      <td style="font-weight:600">${name}</td>
-      <td style="text-align:right;font-weight:600" class="${p>=0?'profit':'loss'}">${p>=0?'+':''}${TradeUtils.fmt(p)}</td>
-      <td style="text-align:right" class="${p>=0?'profit':'loss'}">${rate !== '-' ? (p>=0?'+':'')+rate+'%' : '-'}</td>
+      <td style="font-weight:600">${name} ${evalStr}</td>
+      <td style="color:#aaa;font-size:12px">${code||'-'}</td>
+      <td style="color:#888">${its[0].cat}</td>
+      <td>${TradeUtils.fmt(b)}</td><td>${TradeUtils.fmt(s)}</td>
+      <td class="${p>=0?'profit':'loss'}" style="font-weight:600">${p>=0?'+':''}${TradeUtils.fmt(p)}</td>
+      <td class="${p>=0?'profit':'loss'}">${rate}%</td>
     </tr>`;
   }).join('');
 }
@@ -525,8 +450,11 @@ async function clearApiSettings(){
   renderPriceCards();
 }
 function updateApiStatusSub(){
-  const sub=document.getElementById('api-status-sub');
-  if(sub) sub.textContent=apiCreds?`연결됨 (${apiCreds.isPaper?'모의투자':'실전투자'})`:'미설정';
+  const txt = apiCreds ? `연결됨 (${apiCreds.isPaper?'모의투자':'실전투자'})` : '미설정';
+  const sub  = document.getElementById('api-status-sub');
+  const sub2 = document.getElementById('api-status-sub2');
+  if(sub)  sub.textContent  = txt;
+  if(sub2) sub2.textContent = txt;
 }
 
 async function fetchAllPrices(){
@@ -547,7 +475,6 @@ async function fetchAllPrices(){
   document.getElementById('price-updated').textContent=`마지막 갱신: ${new Date().toLocaleTimeString('ko-KR')}`;
   btn.classList.remove('loading');
   document.getElementById('refresh-icon').textContent='↻';
-  renderSummaryMetrics();
   renderPriceCards(); renderStockTable();
   log(`시세 갱신 완료 (${ok}/${codes.length}건)`,ok>0?'ok':'err');
 }
@@ -600,48 +527,6 @@ async function syncDelete(){
     setSyncStatus('✓ 클라우드 데이터 삭제 완료','ok');
     log('클라우드 데이터 삭제','warn');
   }catch(e){setSyncStatus('삭제 실패: '+e.message,'err');}
-}
-
-// ── 계산기 ────────────────────────────────────────────────
-let calcCurrent='0', calcExpr='', calcOperand=null, calcOperator=null, calcNewNum=false;
-
-function openCalc() {
-  calcCurrent='0'; calcExpr=''; calcOperand=null; calcOperator=null; calcNewNum=false;
-  const existing = document.getElementById('deposit-input').value;
-  if (existing && Number(existing) > 0) calcCurrent = existing;
-  updateCalcDisplay();
-  document.getElementById('calc-overlay').style.display='flex';
-}
-function closeCalc(){ document.getElementById('calc-overlay').style.display='none'; }
-function confirmCalc(){
-  const val = Math.floor(parseFloat(calcCurrent));
-  if (!isNaN(val) && val > 0) {
-    document.getElementById('deposit-input').value = val;
-  }
-  closeCalc();
-}
-function calcInput(key){
-  if(key==='C'){calcCurrent='0';calcExpr='';calcOperand=null;calcOperator=null;calcNewNum=false;}
-  else if(key==='±'){calcCurrent=String(parseFloat(calcCurrent)*-1);}
-  else if(key==='%'){calcCurrent=String(parseFloat(calcCurrent)/100);}
-  else if(['+','-','*','/'].includes(key)){
-    calcOperand=parseFloat(calcCurrent);calcOperator=key;
-    calcExpr=`${calcCurrent} ${key==='*'?'×':key==='/'?'÷':key}`;calcNewNum=true;
-  }else if(key==='='){
-    if(calcOperand!==null&&calcOperator){
-      const b=parseFloat(calcCurrent);
-      let r=calcOperator==='+'?calcOperand+b:calcOperator==='-'?calcOperand-b:calcOperator==='*'?calcOperand*b:b!==0?calcOperand/b:0;
-      calcExpr=`${calcOperand} ${calcOperator==='*'?'×':calcOperator==='/'?'÷':calcOperator} ${b} =`;
-      calcCurrent=String(parseFloat(r.toFixed(6)));calcOperand=null;calcOperator=null;calcNewNum=false;
-    }
-  }else if(key==='.'){if(calcNewNum){calcCurrent='0.';calcNewNum=false;return;}if(!calcCurrent.includes('.'))calcCurrent+='.';}
-  else{if(calcNewNum||calcCurrent==='0'){calcCurrent=key;calcNewNum=false;}else if(calcCurrent.length<12)calcCurrent+=key;}
-  updateCalcDisplay();
-}
-function updateCalcDisplay(){
-  document.getElementById('calc-expr').textContent=calcExpr;
-  const n=parseFloat(calcCurrent);
-  document.getElementById('calc-val').textContent=isNaN(n)?calcCurrent:(calcCurrent.endsWith('.')?calcCurrent:n.toLocaleString('ko-KR'));
 }
 
 init();

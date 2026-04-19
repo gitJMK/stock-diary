@@ -407,7 +407,11 @@ async function addTrade() {
   msg.style.color='#1D9E75'; msg.textContent='✓ 등록되었습니다.';
   ['fn','fcode','fq','fp','ff','fm'].forEach(id=>{document.getElementById(id).value='';});
   renderDayList(sel); renderCal();
-  setTimeout(()=>{msg.textContent='';},2000);
+  setTimeout(()=>{
+    msg.textContent='';
+    closePanel();
+    window.scrollTo({top:0, behavior:'smooth'});
+  },1000);
 }
 
 async function delTrade(id) {
