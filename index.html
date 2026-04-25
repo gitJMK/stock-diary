@@ -267,12 +267,22 @@ async function checkRoleHint() {
   hint.textContent = '확인 중...';
   hint.className = 'role-hint';
   roleHintTimer = setTimeout(async () => {
-    const admin = await isAdmin(uid);
-    if (admin) {
-      hint.textContent = '👑 관리자 계정으로 등록됩니다';
-      hint.className = 'role-hint admin';
-    } else {
-      hint.textContent = '👤 일반 사용자로 등록됩니다';
+    try {
+      const res = await fetch('https://kis-proxy.i-jmkfx.workers.dev/is-admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: uid }),
+      });
+      const data = await res.json();
+      if (data.isAdmin) {
+        hint.textContent = '👑 관리자 계정으로 등록됩니다';
+        hint.className = 'role-hint admin';
+      } else {
+        hint.textContent = `👤 일반 사용자 (응답: ${JSON.stringify(data)})`;
+        hint.className = 'role-hint';
+      }
+    } catch(e) {
+      hint.textContent = `오류: ${e.message}`;
       hint.className = 'role-hint';
     }
   }, 400);
