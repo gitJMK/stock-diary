@@ -1,6 +1,6 @@
 // ═══════════════════════════════════════════════════════════
 // trades.js — 거래 로직 & 종목 DB
-// ver0.0.03
+// ver0.0.13
 // ═══════════════════════════════════════════════════════════
 
 // ── 주요 국내 종목 DB ─────────────────────────────────────
@@ -69,48 +69,6 @@ const TradeUtils = {
       .map(h => ({...h, avgPrice: h.qty > 0 ? Math.round(h.totalCost / h.qty) : 0}));
   },
 
-  // FIFO 실현손익 계산
-  getRealizedPL(trades) {
-    const sorted = [...trades].sort((a,b) => a.date.localeCompare(b.date) || a.id - b.id);
-    const stockMap = {};
-    sorted.forEach(t => {
-      const key = t.code || t.name;
-      if (!stockMap[key]) stockMap[key] = {name:t.name, code:t.code||'', cat:t.cat, queue:[], realizedPL:0, soldQty:0, costBasis:0};
-      const s = stockMap[key];
-      if (t.type === '매입') {
-        const unitCost = (t.qty * t.price + (t.fee||0)) / t.qty;
-        s.queue.push({qty:t.qty, unitCost});
-      } else {
-        const unitProceeds = (t.qty * t.price - (t.fee||0)) / t.qty;
-        let remaining = t.qty;
-        while (remaining > 0 && s.queue.length > 0) {
-          const lot = s.queue[0];
-          const matched = Math.min(remaining, lot.qty);
-          s.costBasis += matched * lot.unitCost;
-          s.realizedPL += matched * (unitProceeds - lot.unitCost);
-          lot.qty -= matched;
-          remaining -= matched;
-          if (lot.qty === 0) s.queue.shift();
-        }
-        s.soldQty += t.qty;
-      }
-    });
-    const byStock = {};
-    let total = 0;
-    Object.entries(stockMap).forEach(([key, s]) => {
-      const holdingQty = s.queue.reduce((sum, lot) => sum + lot.qty, 0);
-      byStock[key] = {
-        name:s.name, code:s.code, cat:s.cat,
-        realizedPL: Math.round(s.realizedPL),
-        soldQty: s.soldQty,
-        costBasis: Math.round(s.costBasis),
-        holding: holdingQty > 0,
-      };
-      total += s.realizedPL;
-    });
-    return {total: Math.round(total), byStock};
-  },
-
   // CSV 내보내기
   exportCSV(trades) {
     if (!trades.length) { alert('내보낼 거래 데이터가 없습니다.'); return; }
@@ -138,6 +96,65 @@ const TradeUtils = {
       else map[mo].sell += t.qty * t.price - (t.fee||0);
     });
     return map;
+  },
+
+  // FIFO 기반 종목별 실현손익 계산
+  // 반환: [{name, code, cat, realizedPL, soldQty, holdQty, avgBuyPrice}]
+  getRealizedPL(trades) {
+    const sorted = [...trades].sort((a,b) => a.date.localeCompare(b.date) || a.id - b.id);
+    const map = {};
+
+    sorted.forEach(t => {
+      const key = t.code || t.name;
+      if (!map[key]) map[key] = {
+        name: t.name, code: t.code||'', cat: t.cat,
+        queue: [],        // FIFO 매입 큐: [{qty, price, fee}]
+        realizedPL: 0,
+        soldQty: 0,
+        holdQty: 0,
+      };
+      const s = map[key];
+
+      if (t.type === '매입') {
+        // 수수료를 수량 비례로 단가에 포함
+        s.queue.push({ qty: t.qty, price: t.price, fee: t.fee || 0 });
+        s.holdQty += t.qty;
+      } else {
+        // 매도: FIFO로 매입 원가 차감
+        let remainSell = t.qty;
+        const sellRevenue = t.qty * t.price - (t.fee || 0);
+        let costBasis = 0;
+
+        while (remainSell > 0 && s.queue.length > 0) {
+          const head = s.queue[0];
+          const take = Math.min(head.qty, remainSell);
+          // 해당 lot의 단위당 수수료 포함 평균 매입가
+          const unitCost = head.price + (head.fee / head.qty);
+          costBasis += take * unitCost;
+          head.qty -= take;
+          if (head.fee > 0) head.fee -= (head.fee / (head.qty + take)) * take;
+          remainSell -= take;
+          if (head.qty <= 0) s.queue.shift();
+        }
+
+        s.realizedPL += sellRevenue - costBasis;
+        s.soldQty += t.qty;
+        s.holdQty = Math.max(0, s.holdQty - t.qty);
+      }
+    });
+
+    return Object.values(map).map(s => ({
+      name: s.name,
+      code: s.code,
+      cat: s.cat,
+      realizedPL: Math.round(s.realizedPL),
+      soldQty: s.soldQty,
+      holdQty: s.holdQty,
+      // 현재 보유 평균 매입가 (큐에서 계산)
+      avgBuyPrice: s.holdQty > 0
+        ? Math.round(s.queue.reduce((sum, l) => sum + l.qty * l.price, 0) / s.holdQty)
+        : 0,
+    }));
   }
 };
 
@@ -165,12 +182,28 @@ const KisAPI = {
   PROXY_BASE: 'https://kis-proxy.i-jmkfx.workers.dev',
 
   async ensureToken(userId, apiCreds) {
+    const env = apiCreds.isPaper ? 'paper' : 'real';
+
+    // 1) sessionStorage 우선 확인 (탭 내 빠른 재사용)
     const cached = sessionStorage.getItem(KEY.tokenKey(userId));
     if (cached) {
       const {token, expiry} = JSON.parse(cached);
       if (Date.now() < expiry - 60000) return token;
     }
-    const env = apiCreds.isPaper ? 'paper' : 'real';
+
+    // 2) Supabase DB에서 토큰 확인 (탭 닫아도 유지)
+    try {
+      const row = await SB.getToken(userId, env);
+      if (row && Date.now() < row.expiry - 60000) {
+        // DB 토큰 유효 → sessionStorage에도 캐시
+        sessionStorage.setItem(KEY.tokenKey(userId), JSON.stringify({token: row.token, expiry: row.expiry}));
+        return row.token;
+      }
+    } catch(e) {
+      console.warn('Supabase 토큰 조회 실패, 신규 발급:', e);
+    }
+
+    // 3) 신규 발급
     const resp = await fetch(`${this.PROXY_BASE}/${env}/oauth2/tokenP`, {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
@@ -180,7 +213,15 @@ const KisAPI = {
     const data = await resp.json();
     if (data.error_code) throw new Error(data.error_description || '토큰 오류');
     const expiry = Date.now() + (data.expires_in ?? 86400) * 1000;
+
+    // 4) sessionStorage + Supabase DB 동시 저장
     sessionStorage.setItem(KEY.tokenKey(userId), JSON.stringify({token: data.access_token, expiry}));
+    try {
+      await SB.upsertToken(userId, env, data.access_token, expiry);
+    } catch(e) {
+      console.warn('Supabase 토큰 저장 실패:', e);
+    }
+
     return data.access_token;
   },
 

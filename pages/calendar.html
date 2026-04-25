@@ -80,6 +80,25 @@
 .calc-confirm:hover{background:#333}
 .calc-cancel{width:100%;padding:10px;background:none;border:none;color:#888;font-size:13px;cursor:pointer;margin-top:6px}
 
+/* 보유 종목 평가금액 */
+.holdings-section{border-top:1px solid #e5e5e5;padding:1rem 1.5rem 1.5rem}
+.holdings-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.holdings-title{font-size:13px;font-weight:600;color:#555}
+.holdings-refresh{display:flex;align-items:center;gap:4px;padding:4px 10px;font-size:11px;background:#fff;border:1px solid #ddd;border-radius:8px;cursor:pointer;color:#555}
+.holdings-refresh:hover{background:#f5f5f5}
+.holdings-refresh.loading{opacity:.6;pointer-events:none}
+.holdings-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px}
+.hcard{background:#f9f9f9;border-radius:10px;padding:10px 12px;border:1px solid #eee}
+.hcard-name{font-size:12px;font-weight:600;margin-bottom:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hcard-meta{font-size:10px;color:#aaa;margin-bottom:6px}
+.hcard-price{font-size:15px;font-weight:600}
+.hcard-change{font-size:10px;margin-bottom:4px}
+.hcard-change.up{color:#1D9E75}.hcard-change.down{color:#e24b4a}
+.hcard-eval{font-size:10px;color:#888;padding-top:5px;border-top:1px solid #eee;margin-top:4px}
+.hcard-pl{font-weight:600}
+.hcard-pl.profit{color:#1D9E75}.hcard-pl.loss{color:#e24b4a}
+.holdings-updated{font-size:11px;color:#aaa;text-align:right;margin-top:6px}
+
 @media(max-width:600px){
   .cal-header{padding:.75rem 1rem}
   .panel{padding:1rem}
@@ -87,6 +106,8 @@
   .dnum{font-size:11px}
   .ctrade{font-size:9px;padding:1px 3px}
   .more{font-size:9px}
+  .holdings-section{padding:1rem}
+  .holdings-grid{grid-template-columns:1fr 1fr}
 }
 </style>
 </head>
@@ -196,6 +217,18 @@
     </div>
     <div class="cells" id="cells"></div>
   </div>
+  <!-- 보유 종목 평가금액 (KIS API 연결 시) -->
+  <div class="holdings-section" id="holdings-section" style="display:none">
+    <div class="holdings-header">
+      <span class="holdings-title">📊 보유 종목 평가</span>
+      <button class="holdings-refresh" id="holdings-refresh-btn" onclick="fetchHoldingPrices()">
+        <span id="holdings-refresh-icon">↻</span> 시세 갱신
+      </button>
+    </div>
+    <div class="holdings-grid" id="holdings-grid"></div>
+    <div class="holdings-updated" id="holdings-updated"></div>
+  </div>
+
   <div id="panel" style="display:none">
     <div class="panel">
       <div class="ph">
@@ -252,6 +285,7 @@
   </div>
 </div>
 
+<script src="../js/supabase.js"></script>
 <script src="../js/auth.js"></script>
 <script src="../js/storage.js"></script>
 <script src="../js/trades.js"></script>
@@ -264,6 +298,7 @@ Logger.init();
 
 let trades = [];
 let apiCreds = null;
+let priceCache = {};
 let cy = new Date().getFullYear(), cm = new Date().getMonth(), sel = null;
 const todayStr = new Date().toISOString().slice(0,10);
 
@@ -271,6 +306,7 @@ async function init() {
   trades = await Storage.loadTrades(userId, masterPw);
   apiCreds = await Storage.loadCreds(userId, masterPw);
   renderCal();
+  renderHoldingsSection();
   log(`캘린더 로드 완료 (${trades.length}건)`, 'ok');
 }
 
@@ -502,6 +538,68 @@ async function fetchPriceForForm(){
     msg.textContent=`현재가: ${data.price.toLocaleString('ko-KR')}원 (${data.changeRate>0?'+':''}${data.changeRate}%)`;
   }catch(e){alert('시세 조회 실패: '+e.message);}
   finally{btn.textContent='시세↓';btn.disabled=false;}
+}
+
+// ── 보유 종목 평가금액 ────────────────────────────────────
+function renderHoldingsSection() {
+  const sec = document.getElementById('holdings-section');
+  if (!apiCreds) { sec.style.display = 'none'; return; }
+  const holdings = TradeUtils.getHoldings(trades).filter(h => h.code);
+  if (!holdings.length) { sec.style.display = 'none'; return; }
+  sec.style.display = '';
+  renderHoldingCards(holdings);
+}
+
+function renderHoldingCards(holdings) {
+  const grid = document.getElementById('holdings-grid');
+  if (!holdings) holdings = TradeUtils.getHoldings(trades).filter(h => h.code);
+  if (!holdings.length) { grid.innerHTML = ''; return; }
+
+  grid.innerHTML = holdings.map(h => {
+    const pc = priceCache[h.code];
+    if (!pc) {
+      return `<div class="hcard">
+        <div class="hcard-name">${h.name}</div>
+        <div class="hcard-meta">${h.code} · ${TradeUtils.fmtN(h.qty)}주</div>
+        <div style="font-size:11px;color:#ccc">시세 갱신 필요</div>
+      </div>`;
+    }
+    const pl = (pc.price - h.avgPrice) * h.qty;
+    const plRate = h.avgPrice > 0 ? ((pc.price - h.avgPrice) / h.avgPrice * 100).toFixed(2) : 0;
+    const isUp = pc.change >= 0;
+    const evalAmt = pc.price * h.qty;
+    return `<div class="hcard">
+      <div class="hcard-name">${pc.name || h.name}</div>
+      <div class="hcard-meta">${h.code} · ${TradeUtils.fmtN(h.qty)}주</div>
+      <div class="hcard-price">${TradeUtils.fmtN(pc.price)}원</div>
+      <div class="hcard-change ${isUp?'up':'down'}">${isUp?'▲':'▼'} ${Math.abs(pc.change).toLocaleString('ko-KR')}원 (${isUp?'+':''}${pc.changeRate}%)</div>
+      <div class="hcard-eval">
+        평가 ${TradeUtils.fmt(evalAmt)}<br>
+        평가손익 <span class="hcard-pl ${pl>=0?'profit':'loss'}">${pl>=0?'+':''}${TradeUtils.fmt(pl)} (${pl>=0?'+':''}${plRate}%)</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function fetchHoldingPrices() {
+  if (!apiCreds) return;
+  const holdings = TradeUtils.getHoldings(trades).filter(h => h.code);
+  if (!holdings.length) return;
+  const btn = document.getElementById('holdings-refresh-btn');
+  const icon = document.getElementById('holdings-refresh-icon');
+  btn.classList.add('loading'); icon.textContent = '⟳';
+  let ok = 0;
+  for (const h of holdings) {
+    try {
+      priceCache[h.code] = await KisAPI.fetchPrice(h.code, userId, apiCreds);
+      ok++;
+    } catch(e) { log(`${h.code} 시세 실패: ${e.message}`, 'err'); }
+  }
+  document.getElementById('holdings-updated').textContent =
+    `마지막 갱신: ${new Date().toLocaleTimeString('ko-KR')}`;
+  btn.classList.remove('loading'); icon.textContent = '↻';
+  renderHoldingCards(holdings);
+  log(`보유 종목 시세 갱신 (${ok}/${holdings.length}건)`, ok > 0 ? 'ok' : 'err');
 }
 
 // ── 계산기 ────────────────────────────────────────────────

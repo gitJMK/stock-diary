@@ -1,18 +1,18 @@
 // ═══════════════════════════════════════════════════════════
 // auth.js — 계정 관리 & 암호화 공통 모듈
-// ver0.0.11
+// ver0.0.13
 // ═══════════════════════════════════════════════════════════
 
-const APP_VERSION = 'ver0.0.11';
+const APP_VERSION = 'ver0.0.13';
 
 // ── 스토리지 키 네임스페이스 ──────────────────────────────
-// 계정별로 완전히 분리: sdv4_{userId}_trades / sdv4_{userId}_creds 등
 const KEY = {
-  ACCOUNTS: 'sdv4_accounts',        // 계정 목록 (암호화 안 함 — 사용자명만 저장)
+  ACCOUNTS: 'sdv4_accounts',
   tradesKey:  uid => `sdv4_${uid}_trades`,
   credsKey:   uid => `sdv4_${uid}_creds`,
   hashKey:    uid => `sdv4_${uid}_hash`,
-  tokenKey:   uid => `sdv4_${uid}_token`,  // sessionStorage
+  tokenKey:   uid => `sdv4_${uid}_token`,
+  depositKey: uid => `sdv4_${uid}_deposit`,
 };
 
 // ── AES-256-GCM 암호화 ────────────────────────────────────
@@ -45,68 +45,62 @@ const Crypto = {
   }
 };
 
-// ── 계정 목록 관리 ────────────────────────────────────────
+// ── 계정 목록 관리 (Supabase 기반) ───────────────────────
 const AccountManager = {
-  // 저장된 계정 ID 목록 반환
-  list() {
-    try { return JSON.parse(localStorage.getItem(KEY.ACCOUNTS) || '[]'); }
-    catch { return []; }
+  async list() {
+    try {
+      const users = await SB.listUsers();
+      return users.map(u => u.user_id);
+    } catch(e) {
+      try { return JSON.parse(localStorage.getItem(KEY.ACCOUNTS) || '[]'); }
+      catch { return []; }
+    }
   },
 
-  // 계정 추가
-  add(userId) {
-    const list = this.list();
+  async add(userId, passwordHash, salt) {
+    try {
+      await SB.createUser(userId, passwordHash, salt);
+    } catch(e) {
+      if (!e.message.includes('duplicate') && !e.message.includes('unique')) throw e;
+    }
+    const list = JSON.parse(localStorage.getItem(KEY.ACCOUNTS) || '[]');
     if (!list.includes(userId)) {
       list.push(userId);
       localStorage.setItem(KEY.ACCOUNTS, JSON.stringify(list));
     }
   },
 
-  // 계정 삭제 (데이터 포함)
-  remove(userId) {
-    const list = this.list().filter(u => u !== userId);
+  async remove(userId) {
+    try { await SB.deleteUser(userId); } catch(e) { console.warn('Supabase 계정 삭제 실패:', e); }
+    const list = JSON.parse(localStorage.getItem(KEY.ACCOUNTS) || '[]').filter(u => u !== userId);
     localStorage.setItem(KEY.ACCOUNTS, JSON.stringify(list));
-    [
-      KEY.tradesKey(userId),
-      KEY.credsKey(userId),
-      KEY.hashKey(userId),
-      `sdv4_${userId}_deposit`,
-      `sdv4_${userId}_syncid`,
+    [KEY.tradesKey(userId), KEY.credsKey(userId), KEY.hashKey(userId),
+     KEY.depositKey(userId), `sdv4_${userId}_syncid`
     ].forEach(k => localStorage.removeItem(k));
     sessionStorage.removeItem(KEY.tokenKey(userId));
   },
 
-  // 계정 존재 여부
-  exists(userId) {
-    return !!localStorage.getItem(KEY.hashKey(userId));
+  async exists(userId) {
+    try { return await SB.userExists(userId); }
+    catch { return !!localStorage.getItem(KEY.hashKey(userId)); }
   }
 };
 
-// ── 세션 (로그인 상태 공유) ───────────────────────────────
-// 페이지 간 인증 상태를 sessionStorage로 전달
+// ── 세션 ──────────────────────────────────────────────────
 const Session = {
   SESSION_KEY: 'sdv4_session',
-
   set(userId, masterPw) {
-    // 비밀번호를 sessionStorage에 저장 (탭 닫으면 소멸)
     sessionStorage.setItem(this.SESSION_KEY, JSON.stringify({ userId, masterPw, at: Date.now() }));
   },
-
   get() {
     try {
       const d = JSON.parse(sessionStorage.getItem(this.SESSION_KEY) || 'null');
       if (!d) return null;
-      // 8시간 만료
       if (Date.now() - d.at > 8 * 60 * 60 * 1000) { this.clear(); return null; }
       return d;
     } catch { return null; }
   },
-
-  clear() {
-    sessionStorage.removeItem(this.SESSION_KEY);
-  },
-
-  // 로그인 상태 확인 — 없으면 index.html로 리다이렉트
+  clear() { sessionStorage.removeItem(this.SESSION_KEY); },
   require(redirectTo) {
     const s = this.get();
     if (!s) {
@@ -118,16 +112,13 @@ const Session = {
   }
 };
 
-// ── 로그 패널 (공통) ──────────────────────────────────────
+// ── 로그 패널 ─────────────────────────────────────────────
 const Logger = {
   visible: false,
-
   init() {
-    // 버전 배지
     const badge = document.getElementById('version-badge');
     if (badge) badge.textContent = APP_VERSION;
   },
-
   log(msg, level = 'ok') {
     const list = document.getElementById('log-list');
     const dot  = document.getElementById('log-dot');
@@ -144,13 +135,11 @@ const Logger = {
     while (list.children.length > 50) list.removeChild(list.lastChild);
     if (dot) dot.className = 'log-dot' + (level === 'err' ? ' err' : level === 'warn' ? ' warn' : level === 'info' ? ' info' : '');
   },
-
   toggle() {
     this.visible = !this.visible;
     const panel = document.getElementById('log-panel');
     if (panel) panel.style.display = this.visible ? '' : 'none';
   },
-
   clear() {
     const list = document.getElementById('log-list');
     if (list) list.innerHTML = '<div class="log-empty">아직 로그가 없습니다</div>';
@@ -159,7 +148,6 @@ const Logger = {
   }
 };
 
-// 전역 단축키
 function toggleLog() { Logger.toggle(); }
 function clearLog()  { Logger.clear(); }
 function log(msg, level) { Logger.log(msg, level); }

@@ -1,14 +1,14 @@
 // ═══════════════════════════════════════════════════════════
-// storage.js — 사용자별 암호화 데이터 저장/불러오기
-// ver0.0.03
+// storage.js — 사용자별 데이터 저장/불러오기 (Supabase 기반)
+// ver0.0.13
 // ═══════════════════════════════════════════════════════════
 
 const Storage = {
-  // ── 거래 데이터 ──────────────────────────────────────────
+  // ── 거래 데이터 (Supabase) ────────────────────────────
+
   async saveTrades(userId, masterPw, trades) {
     try {
-      const enc = await Crypto.encrypt(JSON.stringify(trades), masterPw);
-      localStorage.setItem(KEY.tradesKey(userId), enc);
+      await SB.replaceTrades(userId, trades);
       log(`[${userId}] 거래 저장 완료 (${trades.length}건)`, 'ok');
       return true;
     } catch(e) {
@@ -18,19 +18,53 @@ const Storage = {
   },
 
   async loadTrades(userId, masterPw) {
-    const enc = localStorage.getItem(KEY.tradesKey(userId));
-    if (!enc) return [];
     try {
-      const trades = JSON.parse(await Crypto.decrypt(enc, masterPw));
+      const rows = await SB.loadTrades(userId);
+      const trades = rows.map(r => SB.rowToTrade(r));
       log(`[${userId}] 거래 데이터 로드 (${trades.length}건)`, 'ok');
       return trades;
     } catch(e) {
-      log(`[${userId}] 거래 데이터 복호화 실패`, 'err');
+      log(`[${userId}] 거래 데이터 로드 실패: ${e.message}`, 'err');
       return [];
     }
   },
 
-  // ── API 설정 ─────────────────────────────────────────────
+  // 단건 추가
+  async addTrade(userId, trade) {
+    try {
+      const row = await SB.insertTrade(userId, trade);
+      log(`[${userId}] 거래 추가`, 'ok');
+      return row;
+    } catch(e) {
+      log(`[${userId}] 거래 추가 실패: ${e.message}`, 'err');
+      throw e;
+    }
+  },
+
+  // 단건 수정
+  async updateTrade(tradeId, trade) {
+    try {
+      await SB.updateTrade(tradeId, trade);
+      log(`거래 수정 완료`, 'ok');
+    } catch(e) {
+      log(`거래 수정 실패: ${e.message}`, 'err');
+      throw e;
+    }
+  },
+
+  // 단건 삭제
+  async deleteTrade(tradeId) {
+    try {
+      await SB.deleteTrade(tradeId);
+      log(`거래 삭제 완료`, 'ok');
+    } catch(e) {
+      log(`거래 삭제 실패: ${e.message}`, 'err');
+      throw e;
+    }
+  },
+
+  // ── API 설정 (localStorage 유지 — 암호화 저장) ───────
+
   async saveCreds(userId, masterPw, creds) {
     const enc = await Crypto.encrypt(JSON.stringify(creds), masterPw);
     localStorage.setItem(KEY.credsKey(userId), enc);
@@ -39,34 +73,31 @@ const Storage = {
   async loadCreds(userId, masterPw) {
     const enc = localStorage.getItem(KEY.credsKey(userId));
     if (!enc) return null;
-    try {
-      return JSON.parse(await Crypto.decrypt(enc, masterPw));
-    } catch { return null; }
+    try { return JSON.parse(await Crypto.decrypt(enc, masterPw)); }
+    catch { return null; }
   },
 
   removeCreds(userId) {
     localStorage.removeItem(KEY.credsKey(userId));
   },
 
-  // ── 예수금 관리 ──────────────────────────────────────────
-  depositKey: uid => `sdv4_${uid}_deposit`,
+  // ── 예수금 (Supabase users 테이블 활용 또는 localStorage) ──
 
   getDeposit(userId) {
-    return Number(localStorage.getItem(this.depositKey(userId)) || 0);
+    return Number(localStorage.getItem(KEY.depositKey(userId)) || 0);
   },
 
   setDeposit(userId, amount) {
-    localStorage.setItem(this.depositKey(userId), Math.max(0, Math.round(amount)));
+    localStorage.setItem(KEY.depositKey(userId), Math.max(0, Math.round(amount)));
   },
 
-  // 예수금에 금액 추가 (누적)
   addDeposit(userId, amount) {
     const current = this.getDeposit(userId);
     this.setDeposit(userId, current + amount);
     return this.getDeposit(userId);
   },
 
-  // ── 클라우드 동기화 (Cloudflare KV) ──────────────────────
+  // ── 클라우드 동기화 (기존 Cloudflare KV — 유지) ──────
   PROXY_BASE: 'https://kis-proxy.i-jmkfx.workers.dev',
   SYNC_ID_KEY: uid => `sdv4_${uid}_syncid`,
 
@@ -104,7 +135,7 @@ const Storage = {
     if (payload.trades) localStorage.setItem(KEY.tradesKey(userId), payload.trades);
     if (payload.creds)  localStorage.setItem(KEY.credsKey(userId),  payload.creds);
     localStorage.setItem(this.SYNC_ID_KEY(userId), syncId);
-    AccountManager.add(userId);
+    await AccountManager.add(userId);
     return payload;
   },
 

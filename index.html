@@ -132,6 +132,7 @@
   <div class="hub-footer" id="hub-footer">주식 일기장 <span id="version-footer"></span></div>
 </div>
 
+<script src="js/supabase.js"></script>
 <script src="js/auth.js"></script>
 <script>
 let loginTarget = null; // 로그인 시도 중인 userId
@@ -168,9 +169,10 @@ function showNewAccount() {
 }
 
 // ── 계정 목록 렌더 ────────────────────────────────────────
-function renderAccountList() {
-  const list = AccountManager.list();
+async function renderAccountList() {
   const el = document.getElementById('account-list');
+  el.innerHTML = `<div style="text-align:center;padding:2rem;color:#aaa;font-size:13px">불러오는 중...</div>`;
+  const list = await AccountManager.list();
   if (!list.length) {
     el.innerHTML = `<div style="text-align:center;padding:2rem;color:#aaa;font-size:13px">
       아직 계정이 없습니다.<br>새 계정을 만들어 시작하세요.
@@ -178,12 +180,11 @@ function renderAccountList() {
     return;
   }
   el.innerHTML = list.map(uid => {
-    const hasData = !!localStorage.getItem(KEY.tradesKey(uid));
     return `<div class="account-card" onclick="showLogin('${uid}')">
       <div class="account-avatar">${uid.slice(0,2).toUpperCase()}</div>
       <div class="account-info">
         <div class="account-name">${uid}</div>
-        <div class="account-meta">${hasData ? '거래 데이터 있음' : '데이터 없음'}</div>
+        <div class="account-meta">Supabase 계정</div>
       </div>
       <button class="account-del" onclick="deleteAccount(event,'${uid}')">삭제</button>
       <span class="account-arrow">›</span>
@@ -191,10 +192,10 @@ function renderAccountList() {
   }).join('');
 }
 
-function deleteAccount(e, uid) {
+async function deleteAccount(e, uid) {
   e.stopPropagation();
   if (!confirm(`'${uid}' 계정과 모든 데이터를 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.`)) return;
-  AccountManager.remove(uid);
+  await AccountManager.remove(uid);
   log(`계정 삭제: ${uid}`, 'warn');
   renderAccountList();
 }
@@ -206,19 +207,24 @@ async function doLogin() {
   err.textContent = '';
   if (!pw || pw.length < 4) { err.textContent = '비밀번호는 4자 이상이어야 합니다.'; return; }
   log(`[${loginTarget}] 로그인 시도...`, 'info');
-  const stored = localStorage.getItem(KEY.hashKey(loginTarget));
-  const input  = await Crypto.hash(pw + 'stock_diary_v4_' + loginTarget);
-  if (stored !== input) {
-    err.textContent = '비밀번호가 올바르지 않습니다.';
-    log(`[${loginTarget}] 비밀번호 틀림`, 'err');
-    return;
+  try {
+    const user = await SB.getUser(loginTarget);
+    if (!user) { err.textContent = '존재하지 않는 계정입니다.'; return; }
+    const input = await Crypto.hash(pw + 'stock_diary_v4_' + loginTarget);
+    if (user.password_hash !== input) {
+      err.textContent = '비밀번호가 올바르지 않습니다.';
+      log(`[${loginTarget}] 비밀번호 틀림`, 'err');
+      return;
+    }
+    Session.set(loginTarget, pw);
+    log(`[${loginTarget}] 로그인 성공`, 'ok');
+    const params = new URLSearchParams(location.search);
+    const redirect = params.get('redirect');
+    location.href = redirect ? decodeURIComponent(redirect) : 'pages/calendar.html';
+  } catch(e) {
+    err.textContent = '로그인 중 오류가 발생했습니다.';
+    log(`[${loginTarget}] 로그인 오류: ${e.message}`, 'err');
   }
-  Session.set(loginTarget, pw);
-  log(`[${loginTarget}] 로그인 성공`, 'ok');
-  // redirect 파라미터가 있으면 해당 페이지로, 없으면 캘린더로
-  const params = new URLSearchParams(location.search);
-  const redirect = params.get('redirect');
-  location.href = redirect ? decodeURIComponent(redirect) : 'pages/calendar.html';
 }
 
 // ── 신규 계정 ─────────────────────────────────────────────
@@ -230,16 +236,22 @@ async function createAccount() {
   err.textContent = '';
   if (!uid || uid.length < 4)         { err.textContent = '계정 ID는 4자 이상이어야 합니다.'; return; }
   if (!/^[a-zA-Z0-9_-]+$/.test(uid)) { err.textContent = '계정 ID는 영문, 숫자, _ - 만 사용 가능합니다.'; return; }
-  if (AccountManager.exists(uid))     { err.textContent = '이미 존재하는 계정 ID입니다.'; return; }
   if (!pw || pw.length < 4)           { err.textContent = '비밀번호는 4자 이상이어야 합니다.'; return; }
   if (pw !== pw2)                      { err.textContent = '비밀번호가 일치하지 않습니다.'; return; }
   log(`계정 생성 중: ${uid}`, 'info');
-  const h = await Crypto.hash(pw + 'stock_diary_v4_' + uid);
-  localStorage.setItem(KEY.hashKey(uid), h);
-  AccountManager.add(uid);
-  Session.set(uid, pw);
-  log(`계정 생성 완료: ${uid}`, 'ok');
-  location.href = 'pages/calendar.html';
+  try {
+    const exists = await AccountManager.exists(uid);
+    if (exists) { err.textContent = '이미 존재하는 계정 ID입니다.'; return; }
+    const salt = 'stock_diary_v4_' + uid;
+    const h = await Crypto.hash(pw + salt);
+    await AccountManager.add(uid, h, salt);
+    Session.set(uid, pw);
+    log(`계정 생성 완료: ${uid}`, 'ok');
+    location.href = 'pages/calendar.html';
+  } catch(e) {
+    err.textContent = '계정 생성 중 오류가 발생했습니다.';
+    log(`계정 생성 오류: ${e.message}`, 'err');
+  }
 }
 
 // ── 키보드 ────────────────────────────────────────────────

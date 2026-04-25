@@ -115,6 +115,7 @@ tr:hover td{background:#fafafa}
   </div>
 </div>
 
+<script src="../js/supabase.js"></script>
 <script src="../js/auth.js"></script>
 <script src="../js/storage.js"></script>
 <script src="../js/trades.js"></script>
@@ -138,12 +139,14 @@ function logout() { Session.clear(); location.href = '../index.html'; }
 function renderSummary() {
   const bt = trades.filter(t=>t.type==='매입').reduce((s,t)=>s+t.qty*t.price+(t.fee||0),0);
   const st = trades.filter(t=>t.type==='매도').reduce((s,t)=>s+t.qty*t.price-(t.fee||0),0);
-  const pl = TradeUtils.getRealizedPL(trades).total;
+  // FIFO 기준 실현손익 합산
+  const plList = TradeUtils.getRealizedPL(trades);
+  const realizedPL = plList.reduce((s, r) => s + r.realizedPL, 0);
   document.getElementById('summary-bar').innerHTML = `
     <span>총 거래 <strong>${trades.length}건</strong></span>
     <span>매입 <strong>${TradeUtils.fmt(bt)}</strong></span>
     <span>매도 <strong>${TradeUtils.fmt(st)}</strong></span>
-    <span>실현손익 <strong style="color:${pl>=0?'#1D9E75':'#e24b4a'}">${pl>=0?'+':''}${TradeUtils.fmt(pl)}</strong></span>`;
+    <span>실현손익 <strong style="color:${realizedPL>=0?'#1D9E75':'#e24b4a'}">${realizedPL>=0?'+':''}${TradeUtils.fmt(realizedPL)}</strong></span>`;
 }
 
 function renderList() {
