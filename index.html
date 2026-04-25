@@ -278,7 +278,7 @@ async function checkRoleHint() {
         hint.textContent = '👑 관리자 계정으로 등록됩니다';
         hint.className = 'role-hint admin';
       } else {
-        hint.textContent = `👤 일반 사용자 (응답: ${JSON.stringify(data)})`;
+        hint.textContent = `👤 일반 사용자 (전송ID: "${uid}")`;
         hint.className = 'role-hint';
       }
     } catch(e) {
