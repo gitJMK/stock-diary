@@ -1,6 +1,6 @@
 // ═══════════════════════════════════════════════════════════
 // trades.js — 거래 로직 & 종목 DB
-// ver0.0.04
+// ver0.0.13
 // ═══════════════════════════════════════════════════════════
 
 // ── 주요 국내 종목 DB ─────────────────────────────────────
@@ -182,12 +182,28 @@ const KisAPI = {
   PROXY_BASE: 'https://kis-proxy.i-jmkfx.workers.dev',
 
   async ensureToken(userId, apiCreds) {
+    const env = apiCreds.isPaper ? 'paper' : 'real';
+
+    // 1) sessionStorage 우선 확인 (탭 내 빠른 재사용)
     const cached = sessionStorage.getItem(KEY.tokenKey(userId));
     if (cached) {
       const {token, expiry} = JSON.parse(cached);
       if (Date.now() < expiry - 60000) return token;
     }
-    const env = apiCreds.isPaper ? 'paper' : 'real';
+
+    // 2) Supabase DB에서 토큰 확인 (탭 닫아도 유지)
+    try {
+      const row = await SB.getToken(userId, env);
+      if (row && Date.now() < row.expiry - 60000) {
+        // DB 토큰 유효 → sessionStorage에도 캐시
+        sessionStorage.setItem(KEY.tokenKey(userId), JSON.stringify({token: row.token, expiry: row.expiry}));
+        return row.token;
+      }
+    } catch(e) {
+      console.warn('Supabase 토큰 조회 실패, 신규 발급:', e);
+    }
+
+    // 3) 신규 발급
     const resp = await fetch(`${this.PROXY_BASE}/${env}/oauth2/tokenP`, {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
@@ -197,7 +213,15 @@ const KisAPI = {
     const data = await resp.json();
     if (data.error_code) throw new Error(data.error_description || '토큰 오류');
     const expiry = Date.now() + (data.expires_in ?? 86400) * 1000;
+
+    // 4) sessionStorage + Supabase DB 동시 저장
     sessionStorage.setItem(KEY.tokenKey(userId), JSON.stringify({token: data.access_token, expiry}));
+    try {
+      await SB.upsertToken(userId, env, data.access_token, expiry);
+    } catch(e) {
+      console.warn('Supabase 토큰 저장 실패:', e);
+    }
+
     return data.access_token;
   },
 
