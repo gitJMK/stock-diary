@@ -56,6 +56,8 @@
 .new-btn-g{flex:1;padding:10px;background:#fff;border:1px solid #ddd;border-radius:10px;font-size:13px;color:#666;cursor:pointer}
 .new-btn-g:hover{background:#f5f5f5}
 .new-err{font-size:12px;color:#e24b4a;min-height:16px;margin-bottom:4px}
+.role-hint{font-size:11px;color:#bbb;margin-top:-4px;margin-bottom:8px;min-height:16px;padding-left:2px}
+.role-hint.admin{color:#c98a00}
 
 .hub-footer{margin-top:auto;padding-top:2rem;text-align:center;font-size:11px;color:#ccc}
 </style>
@@ -119,7 +121,8 @@
       <div class="new-form-title">새 계정 만들기</div>
       <div class="new-form-sub">계정 ID와 비밀번호를 설정하세요. 비밀번호 분실 시 복구 불가합니다.</div>
       <div class="new-err" id="new-err"></div>
-      <input class="new-input" type="text" id="new-userid" placeholder="계정 ID (영문, 숫자, 4자 이상)" maxlength="32" autocomplete="off">
+      <input class="new-input" type="text" id="new-userid" placeholder="계정 ID (영문, 숫자, 4자 이상)" maxlength="32" autocomplete="off" oninput="checkRoleHint()">
+      <div class="role-hint" id="role-hint"></div>
       <input class="new-input" type="password" id="new-pw" placeholder="비밀번호 (4자 이상)" autocomplete="new-password">
       <input class="new-input" type="password" id="new-pw2" placeholder="비밀번호 확인" autocomplete="new-password">
       <div class="new-btns">
@@ -252,6 +255,27 @@ async function createAccount() {
     err.textContent = '계정 생성 중 오류가 발생했습니다.';
     log(`계정 생성 오류: ${e.message}`, 'err');
   }
+}
+
+// ── 관리자 힌트 ───────────────────────────────────────────
+let roleHintTimer = null;
+async function checkRoleHint() {
+  const uid = document.getElementById('new-userid').value.trim();
+  const hint = document.getElementById('role-hint');
+  clearTimeout(roleHintTimer);
+  if (!uid || uid.length < 2) { hint.textContent = ''; hint.className = 'role-hint'; return; }
+  hint.textContent = '확인 중...';
+  hint.className = 'role-hint';
+  roleHintTimer = setTimeout(async () => {
+    const admin = await isAdmin(uid);
+    if (admin) {
+      hint.textContent = '👑 관리자 계정으로 등록됩니다';
+      hint.className = 'role-hint admin';
+    } else {
+      hint.textContent = '👤 일반 사용자로 등록됩니다';
+      hint.className = 'role-hint';
+    }
+  }, 400);
 }
 
 // ── 키보드 ────────────────────────────────────────────────
