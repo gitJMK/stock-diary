@@ -120,6 +120,16 @@ async function handleSharedPrice(request, env, origin) {
   }, origin);
 }
 
+// ── 관리자 확인 ───────────────────────────────────────────────────────────────
+async function handleIsAdmin(request, env, origin) {
+  if (!isAllowed(origin)) return json({ error: "Origin not allowed" }, origin, 403);
+  let userId;
+  try { ({ userId } = await request.json()); } catch { return json({ error: "잘못된 요청" }, origin, 400); }
+  if (!userId) return json({ error: "userId 필수" }, origin, 400);
+  const adminList = (env.ADMIN_USERS || '').split(',').map(s => s.trim()).filter(Boolean);
+  return json({ isAdmin: adminList.includes(userId) }, origin);
+}
+
 // ── KV 동기화 ─────────────────────────────────────────────────────────────────
 async function handleKV(request, env) {
   const origin = request.headers.get("Origin") || "";
@@ -216,6 +226,7 @@ export default {
       if (pathname === "/" || pathname === "/health") return handleHealth(origin, env);
       if (pathname === "/db")                        return handleDB(request, env, origin);
       if (pathname === "/shared-price")              return handleSharedPrice(request, env, origin);
+      if (pathname === "/is-admin")                  return handleIsAdmin(request, env, origin);
       if (pathname.startsWith("/kv/"))               return handleKV(request, env);
       return handleProxy(request);
     } catch (err) {

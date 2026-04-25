@@ -47,6 +47,15 @@ const SB = {
     return this.req('DELETE', `users?user_id=eq.${userId}`);
   },
 
+  async getDeposit(userId) {
+    const rows = await this.req('GET', `users?user_id=eq.${userId}&select=deposit`);
+    return rows && rows.length > 0 ? Number(rows[0].deposit || 0) : 0;
+  },
+
+  async setDeposit(userId, amount) {
+    return this.req('PATCH', `users?user_id=eq.${userId}`, { deposit: Math.max(0, Math.round(amount)) });
+  },
+
   async saveCreds(userId, encryptedCreds) {
     return this.req('PATCH', `users?user_id=eq.${userId}`, { creds: encryptedCreds });
   },

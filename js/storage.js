@@ -91,14 +91,27 @@ const Storage = {
     try { SB.saveCreds(userId, null); } catch {}
   },
 
-  // ── 예수금 (Supabase users 테이블 활용 또는 localStorage) ──
+  // ── 예수금 (Supabase + localStorage 이중 저장) ──────────
+
+  async loadDeposit(userId) {
+    try {
+      const amount = await SB.getDeposit(userId);
+      localStorage.setItem(KEY.depositKey(userId), amount);
+      return amount;
+    } catch(e) {
+      console.warn('예수금 로드 실패:', e);
+      return Number(localStorage.getItem(KEY.depositKey(userId)) || 0);
+    }
+  },
 
   getDeposit(userId) {
     return Number(localStorage.getItem(KEY.depositKey(userId)) || 0);
   },
 
   setDeposit(userId, amount) {
-    localStorage.setItem(KEY.depositKey(userId), Math.max(0, Math.round(amount)));
+    const val = Math.max(0, Math.round(amount));
+    localStorage.setItem(KEY.depositKey(userId), val);
+    SB.setDeposit(userId, val).catch(e => console.warn('예수금 Supabase 저장 실패:', e));
   },
 
   addDeposit(userId, amount) {

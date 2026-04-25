@@ -75,12 +75,18 @@ tr:hover td{background:#fafafa}
 
 <div class="app">
   <div class="topbar">
-    <span class="topbar-title">📈 주식 일기장 <span class="topbar-user" id="topbar-user"></span></span>
+    <span class="topbar-title">📈 주식 일기장</span>
     <div class="topbar-right">
       <a class="ttab" href="calendar.html">캘린더</a>
       <a class="ttab active" href="list.html">내역</a>
       <a class="ttab" href="stats.html">자산</a>
-      <button class="api-btn" onclick="logout()" style="color:#e24b4a;border-color:#e24b4a">로그아웃</button>
+      <div class="user-btn-wrap">
+        <button class="user-btn" id="user-btn" onclick="toggleUserPopup()">👤</button>
+        <div class="user-popup" id="user-popup" style="display:none">
+          <div class="user-popup-name">👤 <span id="topbar-user"></span></div>
+          <button class="user-popup-btn" style="color:#e24b4a" onclick="logout()">로그아웃</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -124,6 +130,17 @@ const session = Session.require('pages/list.html');
 const { userId, masterPw } = session;
 document.getElementById('topbar-user').textContent = userId;
 Logger.init();
+
+function toggleUserPopup() {
+  const p = document.getElementById('user-popup');
+  p.style.display = p.style.display === 'none' ? '' : 'none';
+}
+document.addEventListener('click', e => {
+  if (!e.target.closest('.user-btn-wrap')) {
+    const p = document.getElementById('user-popup');
+    if (p) p.style.display = 'none';
+  }
+});
 
 let trades = [];
 

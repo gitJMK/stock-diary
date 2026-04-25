@@ -189,7 +189,7 @@
     <div class="topbar-right">
       <a class="ttab" href="calendar.html">캘린더</a>
       <a class="ttab" href="list.html">내역</a>
-      <a class="ttab" href="stats.html">통계</a>
+      <a class="ttab" href="stats.html">자산</a>
       <div class="user-btn-wrap">
         <button class="user-btn" id="user-btn" onclick="toggleUserPopup()">👤</button>
         <div class="user-popup" id="user-popup" style="display:none">
@@ -305,6 +305,7 @@ const todayStr = new Date().toISOString().slice(0,10);
 async function init() {
   trades = await Storage.loadTrades(userId, masterPw);
   apiCreds = await Storage.loadCreds(userId, masterPw);
+  await Storage.loadDeposit(userId);
   renderCal();
   renderHoldingsSection();
   log(`캘린더 로드 완료 (${trades.length}건)`, 'ok');
@@ -354,6 +355,7 @@ function renderCal() {
 }
 
 function selectDate(ds) {
+  if (ds === sel) { closePanel(); return; }
   sel=ds;
   ['fn','fq','fp','ff','fm'].forEach(id=>{document.getElementById(id).value='';});
   document.getElementById('fcode').value='';

@@ -95,7 +95,7 @@
           <button onclick="addDepositAmount()" style="padding:6px 12px;font-size:12px;background:#1a1a1a;color:#fff;border:none;border-radius:8px;cursor:pointer">추가</button>
         </div>
       </div>
-      <div class="settings-row">
+      <div class="settings-row" id="api-settings-row" style="display:none">
         <div>
           <div class="settings-label">KIS API 연결</div>
           <div class="settings-sub" id="api-status-sub2">미설정</div>
@@ -174,12 +174,19 @@
 
 <div class="app">
   <div class="topbar">
-    <span class="topbar-title">📈 주식 일기장 <span class="topbar-user" id="topbar-user"></span></span>
+    <span class="topbar-title">📈 주식 일기장</span>
     <div class="topbar-right">
       <a class="ttab" href="calendar.html">캘린더</a>
       <a class="ttab" href="list.html">내역</a>
-      <a class="ttab active" href="stats.html">통계</a>
-      <button class="api-btn" onclick="openSettingsModal()">설정</button>
+      <a class="ttab active" href="stats.html">자산</a>
+      <div class="user-btn-wrap">
+        <button class="user-btn" id="user-btn" onclick="toggleUserPopup()">👤</button>
+        <div class="user-popup" id="user-popup" style="display:none">
+          <div class="user-popup-name">👤 <span id="topbar-user"></span></div>
+          <button class="user-popup-btn" onclick="toggleUserPopup();openSettingsModal()">설정</button>
+          <button class="user-popup-btn" style="color:#e24b4a" onclick="logout()">로그아웃</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -267,12 +274,25 @@ const { userId, masterPw } = session;
 document.getElementById('topbar-user').textContent = userId;
 Logger.init();
 
-let trades = [], apiCreds = null, priceCache = {}, deposit = 0;
+let trades = [], apiCreds = null, priceCache = {}, deposit = 0, userIsAdmin = false;
+
+function toggleUserPopup() {
+  const p = document.getElementById('user-popup');
+  p.style.display = p.style.display === 'none' ? '' : 'none';
+}
+document.addEventListener('click', e => {
+  if (!e.target.closest('.user-btn-wrap')) {
+    const p = document.getElementById('user-popup');
+    if (p) p.style.display = 'none';
+  }
+});
 
 async function init() {
   trades   = await Storage.loadTrades(userId, masterPw);
   apiCreds = await Storage.loadCreds(userId, masterPw);
-  deposit  = Storage.getDeposit(userId);
+  deposit  = await Storage.loadDeposit(userId);
+  userIsAdmin = await isAdmin(userId);
+  document.getElementById('api-settings-row').style.display = userIsAdmin ? '' : 'none';
   updateApiStatusSub();
   renderStats();
   log(`자산 로드 완료 (${trades.length}건)`, 'ok');
@@ -352,7 +372,7 @@ function renderStats() {
 function renderPriceCards() {
   const wrap = document.getElementById('price-cards-wrap');
   const holdings = TradeUtils.getHoldings(trades).filter(h=>h.code);
-  if(!apiCreds){
+  if(!apiCreds && userIsAdmin){
     wrap.innerHTML=`<div class="no-api-notice">KIS API를 연결하면 실시간 현재가와 평가손익을 확인할 수 있습니다.<br><button onclick="openApiModal()">KIS API 연결하기</button></div>`;
     return;
   }
@@ -495,7 +515,6 @@ function updateApiStatusSub(){
 }
 
 async function fetchAllPrices(){
-  if(!apiCreds){alert('KIS API 설정이 필요합니다.');return;}
   const codes=[...new Set(trades.filter(t=>t.code).map(t=>t.code))];
   if(!codes.length){alert('종목코드가 등록된 거래가 없습니다.');return;}
   const btn=document.getElementById('refresh-btn');
