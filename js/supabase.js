@@ -4,18 +4,14 @@
 // ═══════════════════════════════════════════════════════════
 
 // Supabase 키는 Workers 환경변수에만 저장 — 여기에 없음
-const DB_PROXY  = 'https://kis-proxy.i-jmkfx.workers.dev/db';
-const DB_APP_KEY = '5cc6aed9d2cb62531c5d20de3842e19eddaaffc1edb65efc56cb1788d1e1b7ce';
+const DB_PROXY = 'https://kis-proxy.i-jmkfx.workers.dev/db';
 
 const SB = {
   // ── 공통 요청 (Workers 경유) ──────────────────────────
   async req(method, path, body) {
     const res = await fetch(DB_PROXY, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-App-Key': DB_APP_KEY,
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ method, path, body: body ?? null }),
     });
     if (!res.ok) {
@@ -49,6 +45,15 @@ const SB = {
 
   async deleteUser(userId) {
     return this.req('DELETE', `users?user_id=eq.${userId}`);
+  },
+
+  async saveCreds(userId, encryptedCreds) {
+    return this.req('PATCH', `users?user_id=eq.${userId}`, { creds: encryptedCreds });
+  },
+
+  async loadCreds(userId) {
+    const rows = await this.req('GET', `users?user_id=eq.${userId}&select=creds`);
+    return rows && rows.length > 0 ? rows[0].creds : null;
   },
 
   // ── trades 테이블 ─────────────────────────────────────

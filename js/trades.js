@@ -226,6 +226,10 @@ const KisAPI = {
   },
 
   async fetchPrice(code, userId, apiCreds) {
+    // 개인 API 키 없으면 공유 키로 폴백
+    if (!apiCreds || !apiCreds.appKey) {
+      return this.fetchPriceShared(code);
+    }
     const token = await this.ensureToken(userId, apiCreds);
     const env = apiCreds.isPaper ? 'paper' : 'real';
     const resp = await fetch(
@@ -245,6 +249,19 @@ const KisAPI = {
       changeRate: Number(o.prdy_ctrt), name: o.hts_kor_isnm,
       updatedAt: new Date().toLocaleTimeString('ko-KR'),
     };
+  },
+
+  async fetchPriceShared(code) {
+    const resp = await fetch(`${this.PROXY_BASE}/shared-price`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code }),
+    });
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      throw new Error(err.error || '공유 현재가 조회 실패');
+    }
+    return resp.json();
   }
 };
 

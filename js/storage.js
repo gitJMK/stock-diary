@@ -63,15 +63,24 @@ const Storage = {
     }
   },
 
-  // ── API 설정 (localStorage 유지 — 암호화 저장) ───────
+  // ── API 설정 (Supabase + localStorage 이중 저장) ─────
 
   async saveCreds(userId, masterPw, creds) {
     const enc = await Crypto.encrypt(JSON.stringify(creds), masterPw);
     localStorage.setItem(KEY.credsKey(userId), enc);
+    try { await SB.saveCreds(userId, enc); } catch(e) { console.warn('Supabase creds 저장 실패:', e); }
   },
 
   async loadCreds(userId, masterPw) {
-    const enc = localStorage.getItem(KEY.credsKey(userId));
+    // 1) localStorage 우선
+    let enc = localStorage.getItem(KEY.credsKey(userId));
+    // 2) 없으면 Supabase에서 로드
+    if (!enc) {
+      try {
+        enc = await SB.loadCreds(userId);
+        if (enc) localStorage.setItem(KEY.credsKey(userId), enc);
+      } catch(e) { console.warn('Supabase creds 로드 실패:', e); }
+    }
     if (!enc) return null;
     try { return JSON.parse(await Crypto.decrypt(enc, masterPw)); }
     catch { return null; }
@@ -79,6 +88,7 @@ const Storage = {
 
   removeCreds(userId) {
     localStorage.removeItem(KEY.credsKey(userId));
+    try { SB.saveCreds(userId, null); } catch {}
   },
 
   // ── 예수금 (Supabase users 테이블 활용 또는 localStorage) ──
